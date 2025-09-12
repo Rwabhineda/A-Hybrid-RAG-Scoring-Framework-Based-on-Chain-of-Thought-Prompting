@@ -1,12 +1,10 @@
 # A Hybrid RAG Scoring Framework Based on Chain-of-Thought Prompting
 
-This repository contains code and data for a project that explores **Retrieval-Augmented Generation (RAG)** combined with **Chain-of-Thought (CoT) prompting** to evaluate the legalization degree of international legal instruments.
-
-# A Hybrid RAG Scoring Framework Based on Chain-of-Thought Prompting
-
-[![CI](https://github.com/<YOUR_USERNAME>/<YOUR_REPO>/actions/workflows/ci.yml/badge.svg)](https://github.com/<YOUR_USERNAME>/<YOUR_REPO>/actions)
+[![CI](https://github.com/Rwabhineda/A-Hybrid-RAG-Scoring-Framework-Based-on-Chain-of-Thought-Prompting)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Paper](https://img.shields.io/badge/Paper-PDF-red)](./The%20Legalization%20of%20International%20Instruments%20A%20Hybrid%20RAG%20Scoring%20Framework%20Based%20on%20Chain-of-Thought%20Prompting.pdf)
+
+This repository contains code and data for a project that explores **Retrieval-Augmented Generation (RAG)** combined with **Chain-of-Thought (CoT) prompting** to evaluate the legalization degree of international legal instruments.
 
 > **The Legalization of International Instruments: A Hybrid RAG Scoring Framework Based on Chain-of-Thought Prompting**  
 > Yan Chen, Zihua Zeng, Muhamad Sayuti Hassan
@@ -36,4 +34,25 @@ This repository provides a reproducible pipeline for **clause-level scoring** of
 ---
 
 ## 🧭 Repository Structure
+
+
+
+---
+
+## ⚙️ Installation
+
+```bash
+git clone https://github.com/<YOUR_USERNAME>/<YOUR_REPO>.git
+cd <YOUR_REPO>
+
+# Python >=3.10 recommended
+conda create -n ragcot python=3.10 -y
+conda activate ragcot
+pip install -r requirements.txt
+
+---
+
+## 🧾 Data Format (JSONL)
+
+Each line is one clause unit:
 
