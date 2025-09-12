@@ -1,0 +1,16 @@
+# ==== File Paths ====
+input_file: "src/DATA_Score/Scoring Code/Test_Article.json"
+output_file: "src/DATA_Score/Scoring Code/gpt4o/Test_Article-gpt-4o-WRD-Zero-shot.jsonl"
+exception_log_file: "src/DATA_Score/Scoring Code/gpt4o/Test_Article_exception_llm_output_noRAG-Zero-shot.log"
+
+# ==== OpenAI ====
+openai_api_url: "https://api.openai.com/v1/chat/completions"
+openai_api_key: ""   # <<< fill in your key here >>>
+openai_model: "gpt-4o"
+proxy_url: null
+
+# ==== Runtime ====
+max_concurrent: 3
+batch_size: 9
+request_timeout: 300
+cache_dir: "clause_cache_noRAG_Zero-shot"
