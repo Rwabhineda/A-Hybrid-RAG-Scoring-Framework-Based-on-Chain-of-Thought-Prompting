@@ -42,7 +42,7 @@ This repository provides a reproducible pipeline for **clause-level scoring** of
 ## ⚙️ Installation
 
 ```bash
-git clone https://github.com/<YOUR_USERNAME>/<YOUR_REPO>.git
+git clone https://github.com/Rwabhineda/A-Hybrid-RAG-Scoring-Framework-Based-on-Chain-of-Thought-Prompting.git
 cd <YOUR_REPO>
 
 # Python >=3.10 recommended
@@ -72,12 +72,14 @@ Each line is one clause unit:
 ```
 
 ---
-##📊 Results (key findings)
+
+## 📊 Results (key findings)
 | Model       | Setting    |   ICC(2,1) |        MAE |     Exact |   F1\@0.75 |
 | ----------- | ---------- | ---------: | ---------: | --------: | ---------: |
 | GPT-4o      | RAG+Prompt | **0.8163** | **0.0797** | **77.0%** | **0.7679** |
 | GPT-4o-mini | RAG+Prompt |     0.7090 |     0.1270 |     69.2% |     0.6874 |
 | GPT-3.5     | RAG+Prompt |     0.5227 |     0.2142 |     45.3% |     0.6079 |
 | GPT-5       | RAG+Prompt |     0.7158 |     0.1545 |     47.1% |     0.5078 |
+
 Exact definitions of metrics and experimental protocols are aligned with the paper (ICC, MAE, Exact, Recall/Precision/F1@0.75).
 
