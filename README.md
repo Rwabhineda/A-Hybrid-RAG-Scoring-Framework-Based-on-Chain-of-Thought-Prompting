@@ -1,6 +1,6 @@
 # A Hybrid RAG Scoring Framework Based on Chain-of-Thought Prompting
 
-[![CI](https://github.com/Rwabhineda/A-Hybrid-RAG-Scoring-Framework-Based-on-Chain-of-Thought-Prompting)
+[![CI](https://github.com/Rwabhineda/A-Hybrid-RAG-Scoring-Framework-Based-on-Chain-of-Thought-Prompting)]
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Paper](https://img.shields.io/badge/Paper-PDF-red)](./The%20Legalization%20of%20International%20Instruments%20A%20Hybrid%20RAG%20Scoring%20Framework%20Based%20on%20Chain-of-Thought%20Prompting.pdf)
 
