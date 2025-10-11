@@ -31,11 +31,6 @@ This repository provides a reproducible pipeline for **clause-level scoring** of
 - **Evaluation**: ICC(2,1), MAE, Exact Agreement, Recall/Precision/F1@0.75
 - **Reproducible**: config-driven CLI, fixed seeds, tiny demo for quick verification
 
----
-
-## 🧭 Repository Structure
-
-
 
 ---
 
@@ -74,21 +69,21 @@ Each line is one clause unit:
 ---
 
 ## 📊 Results (key findings)
-| Model             | Method      | ICC(2,1) | MAE    | Exact Agreement Rate | Recall | Precision | F1-Score |
-| ----------------- | ----------- | -------- | ------ | -------------------- | ------ | --------- | -------- |
-| **GPT-3.5 Turbo** | RAG+PROMPT  | 0.5227   | 0.2142 | 45.3%                | 0.8283 | 0.4801    | 0.6079   |
-|                   | PROMPT-ONLY | 0.5236   | 0.2297 | 38.5%                | 0.7339 | 0.4777    | 0.5787   |
-|                   | BASE        | 0.5112   | 0.2103 | 38.7%                | 0.8069 | 0.4934    | 0.6124   |
-| **GPT-4o mini**   | RAG+PROMPT  | 0.7090   | 0.1270 | 69.2%                | 0.8069 | 0.5987    | 0.6874   |
-|                   | PROMPT-ONLY | 0.6861   | 0.1398 | 65.8%                | 0.7811 | 0.5815    | 0.6667   |
-|                   | BASE        | 0.5932   | 0.2057 | 61.9%                | 0.7682 | 0.5265    | 0.6248   |
-| **GPT-4o**        | RAG+PROMPT  | 0.8163   | 0.0797 | 77.1%                | 0.7597 | 0.7763    | 0.7679   |
-|                   | PROMPT-ONLY | 0.7171   | 0.1191 | 64.6%                | 0.6052 | 0.7032    | 0.6493   |
-|                   | BASE        | 0.6533   | 0.1949 | 45.0%                | 0.7339 | 0.5938    | 0.6564   |
-| **GPT-5**         | RAG+PROMPT  | 0.7158   | 0.1545 | 47.1%                | 0.5579 | 0.4659    | 0.5078   |
-|                   | PROMPT-ONLY | 0.7155   | 0.1578 | 46.4%                | 0.5451 | 0.4739    | 0.5070   |
-|                   | BASE        | 0.6366   | 0.2034 | 44.0%                | 0.7983 | 0.5407    | 0.6447   |
-
+| Model       | Setting    |   ICC(2,1) |        MAE |     Exact |   F1\@0.75 |
+| ----------- | ---------- | ---------: | ---------: | --------: | ---------: |
+| GPT-4o      | RAG+Prompt | **0.8163** | **0.0797** | **77.0%** | **0.7679** |
+| GPT-4o-mini | RAG+Prompt |     0.7090 |     0.1270 |     69.2% |     0.6874 |
+| GPT-3.5     | RAG+Prompt |     0.5227 |     0.2142 |     45.3% |     0.6079 |
+| GPT-5       | RAG+Prompt |     0.7158 |     0.1545 |     47.1% |     0.5078 |
 
 Exact definitions of metrics and experimental protocols are aligned with the paper (ICC, MAE, Exact, Recall/Precision/F1@0.75).
 
+
+---
+## 📜 License
+
+This repository is licensed under the **MIT License** for the source code and  
+the **CC BY-NC 4.0 License** for the dataset and embeddings.  
+Please cite the related paper if you use any part of this repository.
+
+© 2025 Zihua Zeng
