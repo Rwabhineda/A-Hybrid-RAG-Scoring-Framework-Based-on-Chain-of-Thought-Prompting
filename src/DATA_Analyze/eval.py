@@ -69,7 +69,7 @@ def main():
 
     repo_root = Path(__file__).resolve().parents[2]
 
-    gold_path = repo_root / "src" / "DATA_Analyze" / "data" / "gold_standard" / "Test_Article-gold_standard.jsonl"
+    gold_path = repo_root / "data" / "gold" / "Test_Article-gold_standard.jsonl"
 
     if args.pred:
         pred_path = Path(args.pred)

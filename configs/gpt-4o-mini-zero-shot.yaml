@@ -1,0 +1,40 @@
+# ASEAN Legal Clause Scoring Configuration
+# Model: GPT-4o-Mini Zero-Shot
+
+experiment:
+  name: "gpt-4o-mini-zero-shot"
+  description: "GPT-4o-Mini without RAG (zero-shot)"
+
+paths:
+  input_file: "data/processed/test_articles.json"
+  output_file: "outputs/gpt-4o-mini-zero/results.jsonl"
+  exception_log: "logs/gpt-4o-mini-zero_exceptions.log"
+  cache_dir: "data/cache/gpt-4o-mini-zero"
+
+vector_db:
+  chroma_dir: "data/rag/chroma_db"
+  collection_name: "asean_scoring"
+
+models:
+  openai:
+    model: "gpt-4o-mini"
+    api_url: "https://api.openai.com/v1/chat/completions"
+    api_key: ""
+  embedding:
+    model: "sentence-transformers/all-mpnet-base-v2"
+  filter:
+    model: "nlpaueb/legal-bert-base-uncased"
+
+retrieval:
+  top_k: 5
+  similarity_threshold: 1.0
+
+runtime:
+  max_concurrent: 3
+  batch_size: 9
+  request_timeout: 300
+
+features:
+  wrd_enabled: false
+  zero_shot: true
+  use_rag: false
