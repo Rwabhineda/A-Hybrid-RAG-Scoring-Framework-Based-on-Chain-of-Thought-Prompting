@@ -1,0 +1,40 @@
+# 1. 仅基础提示 (no RAG, no COT)
+
+experiment:
+  name: "gpt-5-base"
+  description: "Base prompt only (no RAG, no COT)"
+
+paths:
+  input_file: "data/processed/test_articles.json"
+  output_file: "outputs/gpt-5-base/results.jsonl"
+  exception_log: "logs/gpt-5-base_exceptions.log"
+  cache_dir: "data/cache/gpt-5-base"
+
+vector_db:
+  chroma_dir: "data/rag/chroma_db"
+  collection_name: "asean_scoring"
+
+models:
+  openai:
+    model: "gpt-5"
+    api_url: "https://api.openai.com/v1/chat/completions"
+    api_key: ""
+  embedding:
+    model: "sentence-transformers/all-mpnet-base-v2"
+  filter:
+    model: "intfloat/e5-large-v2"
+
+retrieval:
+  top_k: 5
+  similarity_threshold: 1.0
+  relevance_threshold: 0.6
+
+runtime:
+  max_concurrent: 3
+  batch_size: 9
+  request_timeout: 300
+
+features:
+  wrd_enabled: false
+  use_rag: false
+  use_cot_guide: false

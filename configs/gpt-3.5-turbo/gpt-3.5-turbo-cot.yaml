@@ -1,0 +1,40 @@
+# 3. COT + 基础提示 (no RAG)
+
+experiment:
+  name: "gpt-3.5-turbo-cot"
+  description: "COT scoring guide + base prompt only (no RAG)"
+
+paths:
+  input_file: "data/processed/test_articles.json"
+  output_file: "outputs/gpt-3.5-turbo-cot/results.jsonl"
+  exception_log: "logs/gpt-3.5-turbo-cot_exceptions.log"
+  cache_dir: "data/cache/gpt-3.5-turbo-cot"
+
+vector_db:
+  chroma_dir: "data/rag/chroma_db"
+  collection_name: "asean_scoring"
+
+models:
+  openai:
+    model: "gpt-3.5-turbo"
+    api_url: "https://api.openai.com/v1/chat/completions"
+    api_key: ""
+  embedding:
+    model: "sentence-transformers/all-mpnet-base-v2"
+  filter:
+    model: "intfloat/e5-large-v2"
+
+retrieval:
+  top_k: 5
+  similarity_threshold: 1.0
+  relevance_threshold: 0.6
+
+runtime:
+  max_concurrent: 3
+  batch_size: 9
+  request_timeout: 300
+
+features:
+  wrd_enabled: false
+  use_rag: false
+  use_cot_guide: true

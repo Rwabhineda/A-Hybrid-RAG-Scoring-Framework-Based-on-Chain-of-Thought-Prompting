@@ -105,7 +105,7 @@ def extract_key_terms(text: str) -> List[str]:
     return list(set(found_terms))[:10]
 
 
-def build_prompt(clause_text: str, similar_examples: List[Dict]) -> str:
+def build_prompt(clause_text: str, similar_examples: List[Dict], use_cot_guide: bool = True) -> str:
     clause_keywords = extract_key_terms(clause_text)
     example_section = ""
     for i, item in enumerate(similar_examples[:3]):
@@ -123,8 +123,7 @@ Key terms identified: {', '.join(extract_key_terms(item['document'])[:5])}
 Explanation: {metadata.get('explanation_text', 'N/A')}
 ---
 """
-    return f"""{SCORING_GUIDE}
-
+    base_prompt = f"""
 CRITICAL INSTRUCTIONS:
 1. You MUST follow the stepwise criteria EXACTLY - evaluate each step explicitly
 2. Pay special attention to these key terms in the clause: {', '.join(clause_keywords)}
@@ -160,6 +159,9 @@ Based on the above step-by-step analysis, provide a brief summary of your scorin
 FINAL SCORES (must be exactly one of: 0.0, 0.25, 0.5, 0.75, or 1.0):
 {{"obligation": [score], "precision": [score], "delegation": [score]}}
 """
+    if use_cot_guide:
+        return f"{SCORING_GUIDE}\n{base_prompt}"
+    return base_prompt.strip()
 
 
 def extract_scores(output_str: str) -> Dict[str, Optional[float]]:
@@ -280,7 +282,8 @@ class BatchScorer:
         self.model = None
         self.collection = None
         self.session = None
-        
+        self.filter_model = None
+
         # Load configuration
         self.openai_model = config["models"]["openai"]["model"]
         self.openai_api_key = config["models"]["openai"]["api_key"]
@@ -297,7 +300,11 @@ class BatchScorer:
         self.exception_log = config["paths"]["exception_log"]
         self.cache_dir = config["paths"]["cache_dir"]
         self.use_rag = config["features"]["use_rag"]
-        
+        self.use_cot_guide = config["features"].get("use_cot_guide", True)
+        self.wrd_enabled = config["features"].get("wrd_enabled", False)
+        self.relevance_threshold = config["retrieval"].get("relevance_threshold", 0.6)
+        self.filter_model_name = config["models"]["filter"]["model"]
+
         self.cache = ClauseCache(self.cache_dir, model_tag=self.openai_model)
         self.semaphore = asyncio.Semaphore(self.max_concurrent)
     
@@ -309,7 +316,10 @@ class BatchScorer:
             logger.info("Connecting to vector database...")
             chroma_client = PersistentClient(path=self.chroma_dir)
             self.collection = chroma_client.get_or_create_collection(name=self.collection_name)
-        
+        if self.use_rag and self.wrd_enabled:
+            logger.info("Loading WRD relevance model (E5): %s", self.filter_model_name)
+            self.filter_model = SentenceTransformer(self.filter_model_name)
+
         connector = aiohttp.TCPConnector(limit=20, keepalive_timeout=30)
         timeout = aiohttp.ClientTimeout(total=self.request_timeout)
         self.session = aiohttp.ClientSession(connector=connector, timeout=timeout)
@@ -363,7 +373,19 @@ class BatchScorer:
                     })
                 if len(examples) >= self.top_k:
                     break
-        return examples[:self.top_k]
+        examples = examples[:self.top_k]
+        if self.wrd_enabled and self.filter_model is not None and len(examples) > 0:
+            query_text = "query: " + clause_text
+            passage_texts = ["passage: " + ex["document"] for ex in examples]
+            query_vec = self.filter_model.encode([query_text], convert_to_numpy=True)
+            passage_vecs = self.filter_model.encode(passage_texts, convert_to_numpy=True)
+            q_norm = query_vec / (np.linalg.norm(query_vec, axis=1, keepdims=True) + 1e-9)
+            p_norm = passage_vecs / (np.linalg.norm(passage_vecs, axis=1, keepdims=True) + 1e-9)
+            similarities = np.dot(p_norm, q_norm.T).flatten()
+            filtered_indices = [i for i in range(len(examples)) if similarities[i] >= self.relevance_threshold]
+            filtered_indices.sort(key=lambda i: similarities[i], reverse=True)
+            examples = [examples[i] for i in filtered_indices]
+        return examples
     
     async def call_llm(self, prompt: str) -> Optional[str]:
         headers = {
@@ -406,7 +428,7 @@ class BatchScorer:
             return clause, cached_result['llm_output'], cached_result['scores']
         
         similar_examples = self.get_similar_examples(clause_text)
-        prompt = build_prompt(clause_text, similar_examples)
+        prompt = build_prompt(clause_text, similar_examples, self.use_cot_guide)
         llm_output = await self.call_llm(prompt)
         
         if not llm_output:
