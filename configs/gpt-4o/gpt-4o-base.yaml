@@ -19,6 +19,7 @@ models:
     model: "gpt-4o"
     api_url: "https://api.openai.com/v1/chat/completions"
     api_key: ""
+    temperature: 0.0
   embedding:
     model: "sentence-transformers/all-mpnet-base-v2"
   filter:

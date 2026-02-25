@@ -288,6 +288,7 @@ class BatchScorer:
         self.openai_model = config["models"]["openai"]["model"]
         self.openai_api_key = config["models"]["openai"]["api_key"]
         self.openai_api_url = config["models"]["openai"]["api_url"]
+        self.temperature = config["models"]["openai"].get("temperature", 0.0)
         self.embedding_model = config["models"]["embedding"]["model"]
         self.chroma_dir = config["vector_db"]["chroma_dir"]
         self.collection_name = config["vector_db"]["collection_name"]
@@ -395,7 +396,8 @@ class BatchScorer:
         payload = {
             "model": self.openai_model,
             "messages": [{"role": "user", "content": prompt}],
-            "max_completion_tokens": 4096
+            "max_completion_tokens": 4096,
+            "temperature": self.temperature
         }
         async with self.semaphore:
             for attempt in range(3):
