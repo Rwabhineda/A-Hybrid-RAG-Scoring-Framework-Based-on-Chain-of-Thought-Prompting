@@ -48,6 +48,37 @@ pip install -r requirements.txt
 
 ---
 
+## 📁 Project Structure
+
+```
+.
+├── configs/                    # Experiment configurations
+│   ├── gpt-3.5-turbo/         # GPT-3.5 Turbo variants
+│   ├── gpt-4-turbo/           # GPT-4 Turbo variants
+│   ├── gpt-4o/                # GPT-4o variants
+│   ├── gpt-4o-mini/           # GPT-4o Mini variants
+│   ├── gpt-5/                 # GPT-5 variants
+│   └── README.md              # Configuration guide
+├── data/
+│   ├── gold/                  # Gold standard annotations
+│   ├── processed/             # Processed test articles
+│   ├── rag/                   # RAG vector database
+│   └── raw/                   # Raw legal documents
+├── src/
+│   ├── main.py                # Entry point
+│   ├── scoring/
+│   │   └── engine.py          # Core scoring engine
+│   └── evaluation/
+│       └── eval.py            # Evaluation script
+├── outputs/                   # Scoring results (generated)
+├── logs/                      # Exception logs (generated)
+├── .env.example               # Environment template
+├── pyproject.toml             # UV dependencies
+└── README.md                  # This file
+```
+
+---
+
 ## 🧾 Data Format (JSONL)
 
 Each line is one clause unit:
