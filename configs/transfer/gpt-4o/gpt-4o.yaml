@@ -1,0 +1,47 @@
+# 4. RAG + COT 
+
+experiment:
+  name: "gpt-4o-full"
+  description: "Full: RAG + COT + base prompt, with Legal-BERT CE filter"
+
+# File Paths (relative to project root)
+paths:
+  input_file: "data/processed/transfer/test_articles.json"
+  output_file: "outputs/transfer/gpt-4o/full/results.jsonl"
+  exception_log: "outputs/transfer/gpt-4o/full/exception.jsonl"
+  cache_dir: "data/cache/transfer/gpt-4o/full"
+
+# Vector Database
+vector_db:
+  chroma_dir: "data/rag/chroma_db"
+  collection_name: "asean_scoring"
+
+# Models
+models:
+  openai:
+    model: "gpt-4o"
+    api_url: "https://api.openai.com/v1/chat/completions"
+    api_key: ""  # Set via OPENAI_API_KEY environment variable
+    temperature: 0.0
+    max_tokens: 4096
+  embedding:
+    model: "intfloat/e5-large-v2"
+  filter:
+    model: "nlpaueb/legal-bert-base-uncased"
+
+# Retrieval Settings
+retrieval:
+  top_k: 5
+  similarity_threshold: 1.0
+
+# Runtime Settings
+runtime:
+  max_concurrent: 3
+  batch_size: 9
+  request_timeout: 300
+
+# Feature Flags
+features:
+  wrd_enabled: true
+  use_rag: true
+  use_cot_guide: true

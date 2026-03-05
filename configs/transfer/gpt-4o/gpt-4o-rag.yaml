@@ -1,0 +1,41 @@
+# 2. RAG 
+
+experiment:
+  name: "gpt-4o-rag"
+  description: "RAG + base prompt only, with Legal-BERT CE filter"
+
+paths:
+  input_file: "data/processed/transfer/test_articles.json"
+  output_file: "outputs/transfer/gpt-4o/rag/results.jsonl"
+  exception_log: "outputs/transfer/gpt-4o/rag/exception.jsonl"
+  cache_dir: "data/cache/transfer/gpt-4o/rag"
+
+vector_db:
+  chroma_dir: "data/rag/chroma_db"
+  collection_name: "asean_scoring"
+
+models:
+  openai:
+    model: "gpt-4o"
+    api_url: "https://api.openai.com/v1/chat/completions"
+    api_key: ""
+    temperature: 0.0
+    max_tokens: 1200
+  embedding:
+    model: "intfloat/e5-large-v2"
+  filter:
+    model: "nlpaueb/legal-bert-base-uncased"
+
+retrieval:
+  top_k: 5
+  similarity_threshold: 1.0
+
+runtime:
+  max_concurrent: 3
+  batch_size: 9
+  request_timeout: 300
+
+features:
+  wrd_enabled: true
+  use_rag: true
+  use_cot_guide: false
