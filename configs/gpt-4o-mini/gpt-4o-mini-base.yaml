@@ -6,8 +6,8 @@ experiment:
 
 paths:
   input_file: "data/processed/test_articles.json"
-  output_file: "outputs/gpt-4o-mini-base/results.jsonl"
-  exception_log: "logs/gpt-4o-mini-base_exceptions.log"
+  output_file: "outputs/gpt-4o-mini/base/results.jsonl"
+  exception_log: "outputs/gpt-4o-mini/base/exception.jsonl"
   cache_dir: "data/cache/gpt-4o-mini-base"
 
 vector_db:
@@ -20,15 +20,15 @@ models:
     api_url: "https://api.openai.com/v1/chat/completions"
     api_key: ""
     temperature: 0.0
+    max_tokens: 1000
   embedding:
-    model: "sentence-transformers/all-mpnet-base-v2"
-  filter:
     model: "intfloat/e5-large-v2"
+  filter:
+    model: "nlpaueb/legal-bert-base-uncased"
 
 retrieval:
   top_k: 5
   similarity_threshold: 1.0
-  relevance_threshold: 0.6
 
 runtime:
   max_concurrent: 3

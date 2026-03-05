@@ -1,0 +1,40 @@
+{
+  "seed": 42,
+  "train_path": "C:\\Users\\patrick\\Desktop\\TF-IDF + Logistic Regression\\Document\\Train_Article.jsonl",
+  "dims": [
+    "obligation",
+    "precision",
+    "delegation"
+  ],
+  "scores": [
+    0.0,
+    0.25,
+    0.5,
+    0.75,
+    1.0
+  ],
+  "score_to_class": {
+    "0.0": 0,
+    "0.25": 1,
+    "0.5": 2,
+    "0.75": 3,
+    "1.0": 4
+  },
+  "tfidf": {
+    "lowercase": true,
+    "ngram_range": [
+      1,
+      2
+    ],
+    "min_df": 2,
+    "max_df": 0.95,
+    "max_features": 200000
+  },
+  "lr": {
+    "C": 2.0,
+    "max_iter": 4000,
+    "solver": "lbfgs",
+    "multi_class": "multinomial",
+    "class_weight": "balanced"
+  }
+}

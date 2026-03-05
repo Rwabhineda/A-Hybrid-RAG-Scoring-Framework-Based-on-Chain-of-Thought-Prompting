@@ -1,13 +1,13 @@
-# 4. RAG + COT + 基础提示（完整），默�?E5 过滤
+# 4. RAG + COT 
 
 experiment:
   name: "gpt-5-full"
-  description: "Full: RAG + COT + base prompt, with E5 filter"
+  description: "Full: RAG + COT + base prompt, with Legal-BERT CE filter"
 
 paths:
   input_file: "data/processed/test_articles.json"
-  output_file: "outputs/gpt-5/results.jsonl"
-  exception_log: "logs/gpt-5_exceptions.log"
+  output_file: "outputs/gpt-5/full/results.jsonl"
+  exception_log: "outputs/gpt-5/full/exception.jsonl"
   cache_dir: "data/cache/gpt-5"
 
 vector_db:
@@ -17,18 +17,19 @@ vector_db:
 models:
   openai:
     model: "gpt-5"
-    api_url: "https://api.openai.com/v1/chat/completions"
+    api_url: "https://api.openai.com/v1/responses"
     api_key: ""
-    temperature: 0.0
+    temperature: null
+    max_output_tokens: 4096
+    structured_outputs: true
   embedding:
-    model: "sentence-transformers/all-mpnet-base-v2"
-  filter:
     model: "intfloat/e5-large-v2"
+  filter:
+    model: "nlpaueb/legal-bert-base-uncased"
 
 retrieval:
   top_k: 5
   similarity_threshold: 1.0
-  relevance_threshold: 0.6
 
 runtime:
   max_concurrent: 3

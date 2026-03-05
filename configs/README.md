@@ -1,19 +1,18 @@
 # Configuration Guide
 
-This directory contains experiment configurations for the ASEAN Legal Clause Scoring system. Each model subdirectory includes 5 configuration variants for ablation studies. E5 relevance filtering is enabled by default when RAG is used.
+This directory contains experiment configurations for the ASEAN Legal Clause Scoring system. Each model subdirectory includes configuration variants for ablation studies. Legal-BERT Cross-Encoder relevance filtering is enabled by default when RAG is used.
 
 ## Ablation Study Configurations
 
-| Config File | Description | RAG | COT | E5 Filter |
-|-------------|-------------|-----|-----|-----------|
-| **base-only** | 1. Base prompt only | No | No | - |
-| **rag-only** | 2. RAG + base prompt | Yes | No | Yes (default) |
-| **cot-only** | 3. COT + base prompt | No | Yes | - |
-| **gpt-4o.yaml** (etc.) | 4. Full: RAG + COT + base prompt | Yes | Yes | Yes (default) |
-| **full-no-e5** | 5. Full without E5 filter (ablation) | Yes | Yes | No |
+| Config File | Description | RAG | COT | Filter | Output Path |
+|-------------|-------------|-----|-----|-----------|-------------|
+| **base** | 1. Base prompt only | No | No | - | `outputs/{model}/base/` |
+| **rag** | 2. RAG + base prompt | Yes | No | Legal-BERT | `outputs/{model}/rag/` |
+| **cot** | 3. COT + base prompt | No | Yes | - | `outputs/{model}/cot/` |
+| **full** | 4. Full (RAG + COT) | Yes | Yes | Legal-BERT | `outputs/{model}/full/` |
 
-- Configurations using RAG (2, 4) have E5 filtering enabled by default (`wrd_enabled: true`).
-- **full-no-e5** is used for comparison: same as config 4 but disables E5 to evaluate its contribution.
+- Configurations using RAG (2, 4) have Legal-BERT filtering enabled by default (`wrd_enabled: true`).
+- Results are organized by model and experiment type for easy comparison.
 
 ## Supported Models
 
@@ -66,9 +65,9 @@ models:
     api_key: ""                     # Loaded from .env file
     temperature: 0.0                # Sampling temperature (0.0 for deterministic)
   embedding:
-    model: "sentence-transformers/all-mpnet-base-v2"
+    model: "intfloat/e5-large-v2"
   filter:
-    model: "intfloat/e5-large-v2"   # E5 model for relevance filtering
+    model: "nlpaueb/legal-bert-base-uncased"   # Legal-BERT Cross-Encoder for filtering
 
 features:
   use_rag: true                     # Enable RAG retrieval

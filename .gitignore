@@ -53,6 +53,29 @@ logs/
 data/cache/
 *.log
 
+# Local model weights / checkpoints (too large for GitHub)
+*.safetensors
+*.ckpt
+*.pth
+*.pt
+*.onnx
+*.gguf
+*.h5
+*.msgpack
+
+# Common weight filenames (when stored in repo)
+models/**/pytorch_model*.bin
+models/**/model*.bin
+models/**/tf_model*.h5
+models/**/flax_model*.msgpack
+models/**/checkpoint-*/
+
+# Experiment tracking artifacts
+wandb/
+mlruns/
+runs/
+lightning_logs/
+
 # ChromaDB persistence (large files)
 data/rag/chroma_db/
 

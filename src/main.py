@@ -64,6 +64,8 @@ def _normalize_config(config: dict, root: Path) -> dict:
         for section in ["paths", "vector_db"]:
             if section in config:
                 for key, val in config[section].items():
+                    if key == "collection_name":  # Skip non-path fields
+                        continue
                     if isinstance(val, str) and not Path(val).is_absolute():
                         config[section][key] = str(root / val)
         return config
@@ -87,7 +89,7 @@ def _normalize_config(config: dict, root: Path) -> dict:
                 "api_url": config.get("openai_api_url", "https://api.openai.com/v1/chat/completions"),
                 "api_key": ""
             },
-            "embedding": {"model": config.get("embedding_model", "sentence-transformers/all-mpnet-base-v2")},
+            "embedding": {"model": config.get("embedding_model", "intfloat/e5-large-v2")},
             "filter": {"model": config.get("filter_model", "nlpaueb/legal-bert-base-uncased")}
         },
         "retrieval": {"top_k": config.get("top_k", 5), "similarity_threshold": config.get("similarity_threshold", 1.0)},

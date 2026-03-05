@@ -1,0 +1,42 @@
+# RAG mode: base prompt + RAG examples (no COT)
+
+experiment:
+  name: "gpt-5.2-rag"
+  description: "RAG: base prompt + RAG examples, no COT"
+
+paths:
+  input_file: "data/processed/test_articles.json"
+  output_file: "outputs/gpt-5.2/rag/results.jsonl"
+  exception_log: "outputs/gpt-5.2/rag/exception.jsonl"
+  cache_dir: "data/cache/gpt-5.2"
+
+vector_db:
+  chroma_dir: "data/rag/chroma_db"
+  collection_name: "asean_scoring"
+
+models:
+  openai:
+    model: "gpt-5.2"
+    api_url: "https://api.openai.com/v1/responses"
+    api_key: ""
+    temperature: null
+    max_output_tokens: 4096
+    structured_outputs: true
+  embedding:
+    model: "intfloat/e5-large-v2"
+  filter:
+    model: "nlpaueb/legal-bert-base-uncased"
+
+retrieval:
+  top_k: 5
+  similarity_threshold: 1.0
+
+runtime:
+  max_concurrent: 3
+  batch_size: 9
+  request_timeout: 300
+
+features:
+  wrd_enabled: true
+  use_rag: true
+  use_cot_guide: false

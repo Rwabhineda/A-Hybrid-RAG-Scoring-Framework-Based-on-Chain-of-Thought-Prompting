@@ -32,13 +32,130 @@ LEGAL_KEYWORDS = {
     'delegation': ['authority', 'body', 'institution', 'committee', 'organization', 'secretariat', 'council', 'commission', 'party', 'parties']
 }
 
+# Cross-Encoder cache for Legal-BERT CE filtering
+_CE_CACHE: Dict[Tuple[str, int, str], CrossEncoder] = {}
+
+
+def _get_device_str() -> str:
+    return "cuda" if torch.cuda.is_available() else "cpu"
+
+
+def _sigmoid(x: float) -> float:
+    try:
+        return 1.0 / (1.0 + math.exp(-float(x)))
+    except OverflowError:
+        return 0.0 if x < 0 else 1.0
+
+
+def filter_with_legal_ce(
+    query: str,
+    items: List[Dict],
+    *,
+    tau: float = 0.5,
+    add_prob: bool = False,
+    keep_order: bool = True,
+    top_k: Optional[int] = None,
+    model_name: str = "nlpaueb/legal-bert-base-uncased",
+    max_length: int = 512,
+) -> List[Dict]:
+    """Filter examples using Legal-BERT CrossEncoder binary relevance."""
+    if not items:
+        return []
+
+    device = _get_device_str()
+    key = (model_name, max_length, device)
+    if key not in _CE_CACHE:
+        logger.info(f"Loading CrossEncoder: {model_name}")
+        _CE_CACHE[key] = CrossEncoder(model_name, max_length=max_length, device=device, num_labels=1)
+    ce = _CE_CACHE[key]
+
+    pairs = [(query, it.get("document", "")) for it in items]
+    scores = ce.predict(pairs, show_progress_bar=False)
+    probs = [_sigmoid(s) for s in scores]
+
+    annotated = []
+    for it, p in zip(items, probs):
+        x = dict(it)
+        if add_prob:
+            x["prob"] = float(p)
+        annotated.append(x)
+
+    filtered = [x for x, p in zip(annotated, probs) if p >= tau]
+    kept = filtered if len(filtered) >= 1 else annotated  # Keep at least some if all filtered out
+
+    if not keep_order and add_prob:
+        pinned, tail = kept[:1], kept[1:]
+        tail.sort(key=lambda x: x.get("prob", 0.0), reverse=True)
+        kept = pinned + tail
+
+    if isinstance(top_k, int) and top_k > 0:
+        kept = kept[:top_k]
+
+    # Remove prob field if not requested
+    if not add_prob:
+        kept = [{"document": it.get("document", ""), "metadata": it.get("metadata", {}), "distance": it.get("distance", 1.0)} for it in kept]
+
+    return kept
+
+
+def _extract_output_text_from_responses(data: dict) -> Optional[str]:
+    """Best-effort extraction of assistant text from Responses API JSON."""
+    if not isinstance(data, dict):
+        return None
+
+    output_text = data.get("output_text")
+    if isinstance(output_text, str) and output_text.strip():
+        return output_text
+
+    output = data.get("output")
+    if not isinstance(output, list):
+        return None
+
+    parts: List[str] = []
+    for item in output:
+        if not isinstance(item, dict):
+            continue
+        if item.get("type") != "message":
+            continue
+        content = item.get("content")
+        if not isinstance(content, list):
+            continue
+        for c in content:
+            if not isinstance(c, dict):
+                continue
+            if c.get("type") == "output_text" and isinstance(c.get("text"), str):
+                parts.append(c["text"])
+
+    joined = "".join(parts).strip()
+    return joined or None
+
+
+SCORES_JSON_SCHEMA = {
+    "type": "object",
+    "additionalProperties": False,
+    "properties": {
+        "obligation": {"type": "number", "enum": [0.0, 0.25, 0.5, 0.75, 1.0]},
+        "precision": {"type": "number", "enum": [0.0, 0.25, 0.5, 0.75, 1.0]},
+        "delegation": {"type": "number", "enum": [0.0, 0.25, 0.5, 0.75, 1.0]},
+    },
+    "required": ["obligation", "precision", "delegation"],
+}
+
 
 SCORING_GUIDE = """
 You are a trained ASEAN legal clause evaluator. Please rate the following clause on three dimensions: Obligation, Precision, and Delegation. For each dimension, the score must be one of: 0.0, 0.25, 0.5, 0.75, or 1.0.
 
 Strictly follow the stepwise reasoning and criteria below for your scoring. Do NOT score by intuition or general impression.
 
+---
 Obligation (the strength of legal or institutional commitment imposed by the clause)
+Definitions:
+- 1.0: Clearly stipulates a binding legal obligation and specifies concrete consequences for non-compliance (e.g., sanctions, penalties, loss of entitlements).
+- 0.75: Clearly stipulates a binding legal obligation but does NOT mention specific consequences for breach.
+- 0.5: Stipulates a binding legal obligation but is limited by exceptions, or the responsible actor is not the party itself (e.g., a secretariat).
+- 0.25: Expresses only a recommended action or political commitment (e.g., encouraging cooperation, suggesting best efforts).
+- 0.0: No legal obligation or normative commitment (e.g., vision statements, background context, definitions).
+
 Stepwise criteria:
 1. Does the clause contain any binding or committal language?
    - No → Score 0.0
@@ -53,7 +170,15 @@ Stepwise criteria:
    - No → Score 0.75
    - Yes → Score 1.0
 
+---
 Precision (the extent to which the clause is specific and concrete regarding actions and responsible parties)
+Definitions:
+- 1.0: Clearly specifies the action, responsible actor, timeline/frequency, method of execution, and target audience. Unambiguous and operational.
+- 0.75: Defines action and actor but omits some details (e.g., missing timeline, method, or target group).
+- 0.5: Specifies action and actor but lacks most implementation details. Intent can be inferred but lacks clear operational applicability.
+- 0.25: Uses directional, vague, or open-ended language (e.g., "endeavor," "explore," "encourage") without concrete actions.
+- 0.0: No directive content or assigned actor; aspirational language, general values, or broad declarations.
+
 Stepwise criteria:
 1. Does it contain any action content?
    - No → Score 0.0
@@ -68,7 +193,15 @@ Stepwise criteria:
    - Yes → Score 0.75
    - No → Score 1.0
 
+---
 Delegation (whether the clause delegates real adjudicatory, supervisory, executive, or substantial decision-making power to a third party)
+Definitions:
+- 1.0: Grants authoritative functions with direct legal force (dispute resolution, sanctions, binding interpretations). Powers apply automatically.
+- 0.75: Grants binding authority but application is conditional (requires consent/request); OR given decisive control over implementation (approval rights, rule-setting, budget).
+- 0.5: Assigns supportive roles (coordination, technical assistance, information collection). Non-binding and no decisive control.
+- 0.25: No formal institution mentioned, but a specific party is assigned a supportive role (coordination/data collection) without legal authority.
+- 0.0: No institution or party mentioned; or if mentioned, no functional role assigned.
+
 Stepwise criteria:
 1a. Does it mention any concrete institution or party?
    - No → Score 0.0
@@ -86,8 +219,8 @@ Stepwise criteria:
    - No → Score 0.75
    - Yes → Step 5
 5. Are those authoritative powers subject to prerequisites (e.g., consensus, party consent, procedural trigger, application)?
-   - No → Score 0.75
-   - Yes → Score 1.0
+   - Yes → Score 0.75
+   - No → Score 1.0
 
 Please score strictly according to the above criteria and the clause text only.
 """
@@ -105,34 +238,78 @@ def extract_key_terms(text: str) -> List[str]:
     return list(set(found_terms))[:10]
 
 
-def build_prompt(clause_text: str, similar_examples: List[Dict], use_cot_guide: bool = True) -> str:
+# Simple base prompt (matches old Zero-shot code)
+BASE_PROMPT = """
+You are an expert ASEAN legal clause evaluator.
+Your task: Given a single legal clause, assign it a score from the set {0.0, 0.25, 0.5, 0.75, 1.0} on each of the following three dimensions:
+  • Obligation (strength of commitment)
+  • Precision (level of detail and concreteness)
+  • Delegation (degree of decision-making power granted to a third party)
+"""
+
+
+def build_prompt(clause_text: str, similar_examples: List[Dict], use_cot_guide: bool = True, use_rag: bool = True) -> str:
+    """
+    Build prompt based on ablation mode:
+    - base (use_cot=False, use_rag=False): BASE_PROMPT only
+    - rag  (use_cot=False, use_rag=True):  BASE_PROMPT + examples
+    - cot  (use_cot=True,  use_rag=False): SCORING_GUIDE + CRITICAL_INSTRUCTIONS
+    - full (use_cot=True,  use_rag=True):  SCORING_GUIDE + examples + CRITICAL_INSTRUCTIONS
+    """
     clause_keywords = extract_key_terms(clause_text)
+    
+    # Build RAG example section
     example_section = ""
-    for i, item in enumerate(similar_examples[:3]):
-        metadata = item['metadata']
-        conf_info = []
-        for dim in ['obligation', 'precision', 'delegation']:
-            score = metadata.get(dim, 'N/A')
-            conf = metadata.get(f'confidence_{dim}', 'N/A')
-            conf_info.append(f"{dim.capitalize()}: {score} (confidence: {conf})")
-        distance_info = f"(similarity: {1-item.get('distance', 0):.2f})" if 'distance' in item else ""
-        example_section += f"""Example {i+1} {distance_info}:
+    if use_rag and similar_examples:
+        for i, item in enumerate(similar_examples[:3]):
+            metadata = item['metadata']
+            conf_info = []
+            for dim in ['obligation', 'precision', 'delegation']:
+                score = metadata.get(dim, 'N/A')
+                conf = metadata.get(f'confidence_{dim}', 'N/A')
+                conf_info.append(f"{dim.capitalize()}: {score} (confidence: {conf})")
+            distance_info = f"(similarity: {1-item.get('distance', 0):.2f})" if 'distance' in item else ""
+            example_section += f"""Example {i+1} {distance_info}:
 Clause: {item['document']}
 Key terms identified: {', '.join(extract_key_terms(item['document'])[:5])}
 {chr(10).join(conf_info)}
 Explanation: {metadata.get('explanation_text', 'N/A')}
 ---
 """
-    base_prompt = f"""
+    
+    # === MODE: base (no CoT, no RAG) ===
+    if not use_cot_guide and not use_rag:
+        return f"""{BASE_PROMPT}
+Now, analyze the following clause:
+
+Clause: {clause_text}
+
+FINAL SCORES (must be exactly one of: 0.0, 0.25, 0.5, 0.75, or 1.0), Output only this single line of JSON, no other content:
+{{"obligation": [score], "precision": [score], "delegation": [score]}}
+"""
+    
+    # === MODE: rag (no CoT, with RAG) ===
+    if not use_cot_guide and use_rag:
+        return f"""{BASE_PROMPT}
+Here are some HIGH-CONFIDENCE examples with similar characteristics:
+{example_section}
+Now, analyze the following clause:
+
+Clause: {clause_text}
+
+FINAL SCORES (must be exactly one of: 0.0, 0.25, 0.5, 0.75, or 1.0), Output only this single line of JSON, no other content:
+{{"obligation": [score], "precision": [score], "delegation": [score]}}
+"""
+    
+    # === MODE: cot (with CoT, no RAG) ===
+    if use_cot_guide and not use_rag:
+        return f"""{SCORING_GUIDE}
 CRITICAL INSTRUCTIONS:
 1. You MUST follow the stepwise criteria EXACTLY - evaluate each step explicitly
 2. Pay special attention to these key terms in the clause: {', '.join(clause_keywords)}
 3. Each dimension is INDEPENDENT - do not let one score influence another
 4. If uncertain between two scores, provide detailed reasoning and choose the more conservative (lower) score
 5. Your reasoning MUST explicitly reference the specific steps in the criteria
-
-Here are some HIGH-CONFIDENCE examples with similar characteristics:
-{example_section}
 
 Now, analyze the following clause step by step:
 
@@ -159,9 +336,43 @@ Based on the above step-by-step analysis, provide a brief summary of your scorin
 FINAL SCORES (must be exactly one of: 0.0, 0.25, 0.5, 0.75, or 1.0):
 {{"obligation": [score], "precision": [score], "delegation": [score]}}
 """
-    if use_cot_guide:
-        return f"{SCORING_GUIDE}\n{base_prompt}"
-    return base_prompt.strip()
+    
+    # === MODE: full (with CoT and RAG) ===
+    return f"""{SCORING_GUIDE}
+CRITICAL INSTRUCTIONS:
+1. You MUST follow the stepwise criteria EXACTLY - evaluate each step explicitly
+2. Pay special attention to these key terms in the clause: {', '.join(clause_keywords)}
+3. Each dimension is INDEPENDENT - do not let one score influence another
+4. If uncertain between two scores, provide detailed reasoning and choose the more conservative (lower) score
+5. Your reasoning MUST explicitly reference the specific steps in the criteria
+
+Here are some HIGH-CONFIDENCE examples with similar characteristics:
+{example_section}
+Now, analyze the following clause step by step:
+
+Clause: {clause_text}
+
+IMPORTANT: For each dimension below, you must:
+- Explicitly state which step you are evaluating
+- Quote the relevant part of the clause
+- Explain why you move to the next step or stop
+- State the final score clearly
+
+Obligation:
+[Follow steps 1-4 explicitly, showing your reasoning at each step]
+
+Precision:
+[Follow steps 1-4 explicitly, showing your reasoning at each step]
+
+Delegation:
+[Follow steps 1a, 1b, 2-5 explicitly, showing your reasoning at each step]
+
+Explanation:
+Based on the above step-by-step analysis, provide a brief summary of your scoring rationale. Focus on the key factors that determined each score.
+
+FINAL SCORES (must be exactly one of: 0.0, 0.25, 0.5, 0.75, or 1.0):
+{{"obligation": [score], "precision": [score], "delegation": [score]}}
+"""
 
 
 def extract_scores(output_str: str) -> Dict[str, Optional[float]]:
@@ -185,6 +396,10 @@ def extract_scores(output_str: str) -> Dict[str, Optional[float]]:
         patterns = [
             rf"{dim}.*?(?:final\s+)?score[:\s]*(0(?:\.0)?|0\.25|0\.5|0\.75|1(?:\.0)?)",
             rf"{dim}.*?→\s*Score\s+(0(?:\.0)?|0\.25|0\.5|0\.75|1(?:\.0)?)",
+            # Markdown / list styles, e.g. "- **Obligation:** 0.25" or "Obligation: 0.25"
+            rf"(?:^|\n)\s*[-*•]?\s*(?:\*\*)?\s*{dim}\s*(?:\*\*)?\s*[:：]\s*(0(?:\.0)?|0\.25|0\.5|0\.75|1(?:\.0)?)",
+            # Bullet with bold label and score, e.g. "- **Obligation:** **0.25**"
+            rf"(?:^|\n)\s*[-*•]?\s*(?:\*\*)?\s*{dim}\s*(?:\*\*)?\s*[:：]\s*(?:\*\*)?\s*(0(?:\.0)?|0\.25|0\.5|0\.75|1(?:\.0)?)\s*(?:\*\*)?",
         ]
         for pattern in patterns:
             matches = re.findall(pattern, output_str, re.IGNORECASE | re.DOTALL)
@@ -285,10 +500,16 @@ class BatchScorer:
         self.filter_model = None
 
         # Load configuration
-        self.openai_model = config["models"]["openai"]["model"]
-        self.openai_api_key = config["models"]["openai"]["api_key"]
-        self.openai_api_url = config["models"]["openai"]["api_url"]
-        self.temperature = config["models"]["openai"].get("temperature", 0.0)
+        openai_cfg = config["models"]["openai"]
+        self.openai_model = openai_cfg["model"]
+        self.openai_api_key = openai_cfg["api_key"]
+        self.openai_api_url = openai_cfg["api_url"]
+        self.temperature = openai_cfg.get("temperature", 0.0)
+        self.max_tokens = openai_cfg.get("max_tokens")
+        self.max_completion_tokens = openai_cfg.get("max_completion_tokens")
+        self.max_output_tokens = openai_cfg.get("max_output_tokens")
+        self.structured_outputs = bool(openai_cfg.get("structured_outputs", False))
+        self._use_responses_api = "/v1/responses" in str(self.openai_api_url).rstrip("/")
         self.embedding_model = config["models"]["embedding"]["model"]
         self.chroma_dir = config["vector_db"]["chroma_dir"]
         self.collection_name = config["vector_db"]["collection_name"]
@@ -303,7 +524,7 @@ class BatchScorer:
         self.use_rag = config["features"]["use_rag"]
         self.use_cot_guide = config["features"].get("use_cot_guide", True)
         self.wrd_enabled = config["features"].get("wrd_enabled", False)
-        self.relevance_threshold = config["retrieval"].get("relevance_threshold", 0.6)
+        self.relevance_threshold = config["retrieval"].get("relevance_threshold", 0.5)
         self.filter_model_name = config["models"]["filter"]["model"]
 
         self.cache = ClauseCache(self.cache_dir, model_tag=self.openai_model)
@@ -318,8 +539,8 @@ class BatchScorer:
             chroma_client = PersistentClient(path=self.chroma_dir)
             self.collection = chroma_client.get_or_create_collection(name=self.collection_name)
         if self.use_rag and self.wrd_enabled:
-            logger.info("Loading WRD relevance model (E5): %s", self.filter_model_name)
-            self.filter_model = SentenceTransformer(self.filter_model_name)
+            logger.info("Loading Legal-BERT CrossEncoder for WRD filtering: %s", self.filter_model_name)
+            # CrossEncoder will be lazily loaded in filter_with_legal_ce()
 
         connector = aiohttp.TCPConnector(limit=20, keepalive_timeout=30)
         timeout = aiohttp.ClientTimeout(total=self.request_timeout)
@@ -375,17 +596,15 @@ class BatchScorer:
                 if len(examples) >= self.top_k:
                     break
         examples = examples[:self.top_k]
-        if self.wrd_enabled and self.filter_model is not None and len(examples) > 0:
-            query_text = "query: " + clause_text
-            passage_texts = ["passage: " + ex["document"] for ex in examples]
-            query_vec = self.filter_model.encode([query_text], convert_to_numpy=True)
-            passage_vecs = self.filter_model.encode(passage_texts, convert_to_numpy=True)
-            q_norm = query_vec / (np.linalg.norm(query_vec, axis=1, keepdims=True) + 1e-9)
-            p_norm = passage_vecs / (np.linalg.norm(passage_vecs, axis=1, keepdims=True) + 1e-9)
-            similarities = np.dot(p_norm, q_norm.T).flatten()
-            filtered_indices = [i for i in range(len(examples)) if similarities[i] >= self.relevance_threshold]
-            filtered_indices.sort(key=lambda i: similarities[i], reverse=True)
-            examples = [examples[i] for i in filtered_indices]
+        # Apply Legal-BERT CrossEncoder filtering (WRD)
+        if self.wrd_enabled and len(examples) > 0:
+            examples = filter_with_legal_ce(
+                query=clause_text,
+                items=examples,
+                tau=self.relevance_threshold,
+                model_name=self.filter_model_name,
+                top_k=self.top_k
+            )
         return examples
     
     async def call_llm(self, prompt: str) -> Optional[str]:
@@ -393,18 +612,51 @@ class BatchScorer:
             "Authorization": f"Bearer {self.openai_api_key}",
             "Content-Type": "application/json"
         }
-        payload = {
-            "model": self.openai_model,
-            "messages": [{"role": "user", "content": prompt}],
-            "max_completion_tokens": 4096,
-            "temperature": self.temperature
-        }
+        if self._use_responses_api:
+            payload = {
+                "model": self.openai_model,
+                "input": prompt,
+                "max_output_tokens": int(self.max_output_tokens) if self.max_output_tokens is not None else 1400,
+            }
+            if self.structured_outputs:
+                payload["text"] = {
+                    "format": {
+                        "type": "json_schema",
+                        "name": "asean_clause_scores",
+                        "strict": True,
+                        "schema": SCORES_JSON_SCHEMA,
+                    }
+                }
+            if self.temperature is not None:
+                payload["temperature"] = self.temperature
+        else:
+            payload = {
+                "model": self.openai_model,
+                "messages": [{"role": "user", "content": prompt}],
+            }
+            if self.structured_outputs:
+                payload["response_format"] = {
+                    "type": "json_schema",
+                    "json_schema": {
+                        "name": "asean_clause_scores",
+                        "strict": True,
+                        "schema": SCORES_JSON_SCHEMA,
+                    },
+                }
+            if self.max_completion_tokens is not None:
+                payload["max_completion_tokens"] = int(self.max_completion_tokens)
+            else:
+                payload["max_tokens"] = int(self.max_tokens) if self.max_tokens is not None else 1200
+            if self.temperature is not None:
+                payload["temperature"] = self.temperature
         async with self.semaphore:
             for attempt in range(3):
                 try:
                     async with self.session.post(self.openai_api_url, headers=headers, json=payload) as response:
                         if response.status == 200:
                             data = await response.json()
+                            if self._use_responses_api:
+                                return _extract_output_text_from_responses(data)
                             return data["choices"][0]["message"]["content"]
                         elif response.status == 429:
                             wait_time = min(2 ** attempt * 2, 30)
@@ -430,7 +682,7 @@ class BatchScorer:
             return clause, cached_result['llm_output'], cached_result['scores']
         
         similar_examples = self.get_similar_examples(clause_text)
-        prompt = build_prompt(clause_text, similar_examples, self.use_cot_guide)
+        prompt = build_prompt(clause_text, similar_examples, self.use_cot_guide, self.use_rag)
         llm_output = await self.call_llm(prompt)
         
         if not llm_output:
