@@ -21,7 +21,7 @@ models:
     api_key: ""
     temperature: null
     max_output_tokens: 1400
-    structured_outputs: true
+    structured_outputs: false
   embedding:
     model: "intfloat/e5-large-v2"
   filter:

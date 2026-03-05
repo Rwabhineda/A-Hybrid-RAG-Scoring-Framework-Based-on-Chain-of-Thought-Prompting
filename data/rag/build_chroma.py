@@ -78,9 +78,18 @@ def main():
 
     texts = [r["text"] for r in records]
     ids = [r["id"] for r in records]
-    metas = [
-        {k: v for k, v in r.items() if k not in ("id", "text")} for r in records
-    ]
+    # ChromaDB metadata only supports str, int, float, bool - filter out None values
+    metas = []
+    for r in records:
+        meta = {}
+        for k, v in r.items():
+            if k not in ("id", "text") and v is not None:
+                # Ensure value is a supported type
+                if isinstance(v, (str, int, float, bool)):
+                    meta[k] = v
+                else:
+                    meta[k] = str(v)
+        metas.append(meta)
 
     print(f"Loading embedding model: {EMBEDDING_MODEL} ...")
     model = SentenceTransformer(EMBEDDING_MODEL)

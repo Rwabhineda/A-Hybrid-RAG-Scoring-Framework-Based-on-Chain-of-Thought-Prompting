@@ -101,6 +101,7 @@ dmypy.json
 # Nested project folder
 The Legalization of Internation/
 
-# Temporary conversion scripts
+# Temporary conversion/analysis scripts
 convert_*.py
 calculate_*.py
+compare_results.py

@@ -555,14 +555,16 @@ class BatchScorer:
         if not self.use_rag or not self.collection:
             return []
         
-        vec = self.model.encode([clause_text], convert_to_numpy=True).tolist()[0]
+        # E5 models expect "query: " prefix for query text (DB was built with "passage: " prefix)
+        query_text = "query: " + clause_text
+        vec = self.model.encode([query_text], convert_to_numpy=True).tolist()[0]
         results = self.collection.query(
             query_embeddings=[vec], n_results=20, include=["metadatas", "documents", "distances"]
         )
-        examples = []
+        
         candidates = []
         for i in range(len(results["documents"][0])):
-            metadata = results["metadatas"][0][i]
+            metadata = results["metadatas"][0][i] or {}
             confidence_score = sum(
                 metadata.get(f'confidence_{dim}', 0.5)
                 for dim in ['obligation', 'precision', 'delegation']
@@ -576,6 +578,8 @@ class BatchScorer:
                 "quality": (1 - distance) * confidence_score
             })
         candidates.sort(key=lambda x: x['quality'], reverse=True)
+        
+        examples = []
         for candidate in candidates:
             if candidate['confidence_score'] >= 0.5:
                 examples.append({
@@ -585,17 +589,17 @@ class BatchScorer:
                 })
             if len(examples) >= self.top_k:
                 break
+        
         if len(examples) < self.top_k:
-            existing_docs = {ex["document"] for ex in examples}
             for candidate in candidates:
-                if candidate["document"] not in existing_docs:
-                    examples.append({
-                        "document": candidate["document"],
-                        "metadata": candidate["metadata"],
-                        "distance": candidate["distance"]
-                    })
+                examples.append({
+                    "document": candidate["document"],
+                    "metadata": candidate["metadata"],
+                    "distance": candidate["distance"]
+                })
                 if len(examples) >= self.top_k:
                     break
+        
         examples = examples[:self.top_k]
         # Apply Legal-BERT CrossEncoder filtering (WRD)
         if self.wrd_enabled and len(examples) > 0:

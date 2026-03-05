@@ -21,7 +21,7 @@ models:
     api_key: ""
     temperature: 0
     max_output_tokens: 4096
-    structured_outputs: true
+    structured_outputs: false
     reasoning:
       effort: "none"
   embedding:
