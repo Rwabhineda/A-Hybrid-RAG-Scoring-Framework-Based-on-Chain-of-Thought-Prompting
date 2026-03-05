@@ -8,7 +8,7 @@ paths:
   input_file: "data/processed/test_articles.json"
   output_file: "outputs/gpt-4o-mini/cot/results.jsonl"
   exception_log: "outputs/gpt-4o-mini/cot/exception.jsonl"
-  cache_dir: "data/cache/gpt-4o-mini-cot"
+  cache_dir: "data/cache/gpt-4o-mini/cot"
 
 vector_db:
   chroma_dir: "data/rag/chroma_db"

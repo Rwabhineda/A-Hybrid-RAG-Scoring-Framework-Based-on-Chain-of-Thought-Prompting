@@ -8,7 +8,7 @@ paths:
   input_file: "data/processed/test_articles.json"
   output_file: "outputs/gpt-3.5-turbo/rag/results.jsonl"
   exception_log: "outputs/gpt-3.5-turbo/rag/exception.jsonl"
-  cache_dir: "data/cache/gpt-3.5-turbo-rag"
+  cache_dir: "data/cache/gpt-3.5-turbo/rag"
 
 vector_db:
   chroma_dir: "data/rag/chroma_db"
