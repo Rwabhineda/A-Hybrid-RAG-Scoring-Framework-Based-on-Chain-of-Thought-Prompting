@@ -19,9 +19,11 @@ models:
     model: "gpt-5.2"
     api_url: "https://api.openai.com/v1/responses"
     api_key: ""
-    temperature: null
+    temperature: 0
     max_output_tokens: 4096
     structured_outputs: true
+    reasoning:
+      effort: "none"
   embedding:
     model: "intfloat/e5-large-v2"
   filter:

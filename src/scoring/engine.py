@@ -509,6 +509,7 @@ class BatchScorer:
         self.max_completion_tokens = openai_cfg.get("max_completion_tokens")
         self.max_output_tokens = openai_cfg.get("max_output_tokens")
         self.structured_outputs = bool(openai_cfg.get("structured_outputs", False))
+        self.reasoning = openai_cfg.get("reasoning")
         self._use_responses_api = "/v1/responses" in str(self.openai_api_url).rstrip("/")
         self.embedding_model = config["models"]["embedding"]["model"]
         self.chroma_dir = config["vector_db"]["chroma_dir"]
@@ -618,6 +619,8 @@ class BatchScorer:
                 "input": prompt,
                 "max_output_tokens": int(self.max_output_tokens) if self.max_output_tokens is not None else 1400,
             }
+            if isinstance(self.reasoning, dict) and self.reasoning:
+                payload["reasoning"] = self.reasoning
             if self.structured_outputs:
                 payload["text"] = {
                     "format": {
