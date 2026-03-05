@@ -525,7 +525,7 @@ class BatchScorer:
         self.use_rag = config["features"]["use_rag"]
         self.use_cot_guide = config["features"].get("use_cot_guide", True)
         self.wrd_enabled = config["features"].get("wrd_enabled", False)
-        self.relevance_threshold = config["retrieval"].get("relevance_threshold", 0.5)
+        self.relevance_threshold = config["retrieval"].get("relevance_threshold", 0.3)
         self.filter_model_name = config["models"]["filter"]["model"]
 
         self.cache = ClauseCache(self.cache_dir, model_tag=self.openai_model)
