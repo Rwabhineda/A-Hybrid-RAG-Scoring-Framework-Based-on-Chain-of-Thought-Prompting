@@ -48,9 +48,8 @@ uv.lock
 *.pem
 
 # Project outputs (generated during runs)
-outputs/
 logs/
-data/cache/
+
 *.log
 
 # Local model weights / checkpoints (too large for GitHub)
