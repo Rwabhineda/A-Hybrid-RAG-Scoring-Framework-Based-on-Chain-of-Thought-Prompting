@@ -69,7 +69,7 @@ def main():
 
     repo_root = Path(__file__).resolve().parents[2]
 
-    gold_path = repo_root / "data" / "gold" / "Test_Article-gold_standard.jsonl"
+    gold_path = repo_root / "data" / "gold" / "asean" / "Test_Article-gold_standard.json"
 
     if args.pred:
         pred_path = Path(args.pred)
@@ -83,7 +83,7 @@ def main():
     dims = ["obligation", "precision", "delegation"]
     threshold = 0.75
 
-    df_gold = pd.read_json(gold_path, lines=True)
+    df_gold = pd.read_json(gold_path)
     df_pred = pd.read_json(pred_path, lines=True)
 
     use_cols = ["id"] + dims
