@@ -17,19 +17,22 @@ This repository provides a reproducible pipeline for **clause-level scoring** of
 
 **Dimensions**: Obligation (O), Precision (P), Delegation (D)  
 **Scale**: Five-point scores in {0.0, 0.25, 0.5, 0.75, 1.0} with stepwise decision rules  
-**Data**: 2,611 expert-annotated ASEAN clauses (+ 254-clause independent test set)  
-**Models**: GPT-3.5, GPT-4o, GPT-4o-mini, GPT-5  
-**Best**: GPT-4o → ICC **0.8163**, MAE **0.0797**, Exact Agreement **77.0%**, F1@0.75 **0.7679**
+**Data**: 2,611 expert-annotated ASEAN clauses (254-clause test set) + 255-clause African Union transfer set  
+**Models**: GPT-3.5-Turbo, GPT-4o, GPT-4o-mini, GPT-5.2, Legal-BERT, TF-IDF+LR  
+**Best**: GPT-5.2 Full → ICC **0.8223**, MAE **0.0886** | GPT-4o Full → F1@0.75 **0.7441**
 
 ---
 
 ## ✨ Highlights
 
-- **Hybrid RAG**: dense retrieval (ChromaDB, cosine) + **quality-weighted** reranking by confidence
-- **CE Filtering**: Legal-BERT Cross-Encoder binary relevance gate (plug-in)
+- **Hybrid RAG**: dense retrieval (ChromaDB, E5-large-v2) + quality-weighted reranking
+- **Legal-BERT Filtering**: Cross-Encoder binary relevance gate for RAG results
 - **CoT Prompting**: stepwise rubric + few-shot exemplars (Top-K) + robust output parsing
+- **Ablation Study**: 4 modes (base/rag/cot/full) × multiple LLMs for systematic comparison
+- **Transfer Learning**: Cross-domain evaluation on African Union legal documents
+- **Baselines**: Legal-BERT and TF-IDF+LR traditional models for comparison
 - **Evaluation**: ICC(2,1), MAE, Exact Agreement, Recall/Precision/F1@0.75
-- **Reproducible**: config-driven CLI, fixed seeds, tiny demo for quick verification
+- **Reproducible**: config-driven CLI, fixed seeds, organized output structure
 
 
 ---
@@ -48,33 +51,75 @@ pip install -r requirements.txt
 
 ---
 
+## 🚀 Usage
+
+### Running Experiments
+
+```bash
+# In-domain (ASEAN) - Full configuration
+uv run python src/main.py --config configs/asean/gpt-5.2/gpt-5.2.yaml
+
+# In-domain - Ablation study
+uv run python src/main.py --config configs/asean/gpt-4o/gpt-4o-base.yaml
+uv run python src/main.py --config configs/asean/gpt-4o/gpt-4o-rag.yaml
+uv run python src/main.py --config configs/asean/gpt-4o/gpt-4o-cot.yaml
+
+# Cross-domain (Transfer) - African Union data
+uv run python src/main.py --config configs/transfer/gpt-5.2/gpt-5.2.yaml
+```
+
+### Evaluation
+
+```bash
+# Evaluate against gold standard
+uv run python src/evaluation/eval.py --pred outputs/asean/gpt-5.2/full/results.jsonl
+```
+
+---
+
 ## 📁 Project Structure
 
 ```
 .
 ├── configs/                    # Experiment configurations
-│   ├── gpt-3.5-turbo/         # GPT-3.5 Turbo variants
-│   ├── gpt-4-turbo/           # GPT-4 Turbo variants
-│   ├── gpt-4o/                # GPT-4o variants
-│   ├── gpt-4o-mini/           # GPT-4o Mini variants
-│   ├── gpt-5/                 # GPT-5 variants
-│   └── README.md              # Configuration guide
+│   ├── asean/                  # In-domain experiments (ASEAN)
+│   │   ├── gpt-3.5-turbo/
+│   │   ├── gpt-4o/
+│   │   ├── gpt-4o-mini/
+│   │   └── gpt-5.2/
+│   ├── transfer/               # Cross-domain experiments (African Union)
+│   │   ├── gpt-3.5-turbo/
+│   │   ├── gpt-4o/
+│   │   ├── gpt-4o-mini/
+│   │   └── gpt-5.2/
+│   └── README.md               # Configuration guide
 ├── data/
-│   ├── gold/                  # Gold standard annotations
-│   ├── processed/             # Processed test articles
-│   ├── rag/                   # RAG vector database
-│   └── raw/                   # Raw legal documents
+│   ├── gold/
+│   │   └── asean/              # Gold standard annotations
+│   ├── processed/
+│   │   ├── asean/              # ASEAN test articles (254)
+│   │   └── transfer/           # African Union articles (255)
+│   ├── rag/                    # RAG vector database (ChromaDB)
+│   └── cache/                  # API response cache
 ├── src/
-│   ├── main.py                # Entry point
+│   ├── main.py                 # Entry point
 │   ├── scoring/
-│   │   └── engine.py          # Core scoring engine
+│   │   └── engine.py           # Core scoring engine
+│   ├── baseline/               # Traditional baselines
+│   │   ├── legalbert_scorer.py
+│   │   └── tfidf_lr_scorer.py
 │   └── evaluation/
-│       └── eval.py            # Evaluation script
-├── outputs/                   # Scoring results (generated)
-├── logs/                      # Exception logs (generated)
-├── .env.example               # Environment template
-├── pyproject.toml             # UV dependencies
-└── README.md                  # This file
+│       └── eval.py             # Evaluation script
+├── outputs/
+│   ├── asean/                  # In-domain results
+│   │   ├── gpt-5.2/{base,rag,cot,full}/
+│   │   ├── gpt-4o/{base,rag,cot,full}/
+│   │   ├── legalbert-baseline/
+│   │   └── tfidf-lr-baseline/
+│   └── transfer/               # Cross-domain results
+├── .env.example                # Environment template
+├── pyproject.toml              # UV dependencies
+└── README.md                   # This file
 ```
 
 ---
@@ -99,13 +144,33 @@ Each line is one clause unit:
 
 ---
 
-## 📊 Results (key findings)
-| Model       | Setting    |   ICC(2,1) |        MAE |     Exact |   F1\@0.75 |
-| ----------- | ---------- | ---------: | ---------: | --------: | ---------: |
-| GPT-4o      | RAG+Prompt | **0.8163** | **0.0797** | **77.0%** | **0.7679** |
-| GPT-4o-mini | RAG+Prompt |     0.7090 |     0.1270 |     69.2% |     0.6874 |
-| GPT-3.5     | RAG+Prompt |     0.5227 |     0.2142 |     45.3% |     0.6079 |
-| GPT-5       | RAG+Prompt |     0.7158 |     0.1545 |     47.1% |     0.5078 |
+## 📊 Results
+
+### In-Domain Evaluation (ASEAN Test Set)
+
+| Model | Mode | ICC(2,1) | MAE | F1@0.75 |
+|-------|------|:--------:|:---:|:-------:|
+| **GPT-5.2** | **full** | **0.8223** | **0.0886** | 0.6835 |
+| GPT-5.2 | cot | 0.7677 | 0.1128 | 0.6150 |
+| GPT-5.2 | rag | 0.7182 | 0.1384 | 0.6778 |
+| GPT-5.2 | base | 0.6670 | 0.1774 | 0.6471 |
+| **GPT-4o** | **full** | 0.7980 | 0.0954 | **0.7441** |
+| GPT-4o | cot | 0.7298 | 0.1246 | 0.6167 |
+| GPT-4o | rag | 0.7264 | 0.1305 | 0.6960 |
+| GPT-4o | base | 0.6919 | 0.1538 | 0.6431 |
+| Legal-BERT | baseline | 0.7535 | 0.1290 | 0.6821 |
+| TF-IDF+LR | baseline | 0.7194 | 0.1388 | 0.6534 |
+| GPT-4o-mini | full | 0.6612 | 0.1594 | 0.6456 |
+| GPT-3.5-turbo | rag | 0.5631 | 0.1804 | 0.6161 |
+
+### Ablation Study Modes
+
+| Mode | RAG | COT | Description |
+|------|-----|-----|-------------|
+| base | ❌ | ❌ | Zero-shot baseline |
+| rag | ✅ | ❌ | RAG retrieval only |
+| cot | ❌ | ✅ | Chain-of-thought only |
+| full | ✅ | ✅ | Complete pipeline |
 
 Exact definitions of metrics and experimental protocols are aligned with the paper (ICC, MAE, Exact, Recall/Precision/F1@0.75).
 
@@ -117,4 +182,4 @@ This repository is licensed under the **MIT License** for the source code and
 the **CC BY-NC 4.0 License** for the dataset and embeddings.  
 Please cite the related paper if you use any part of this repository.
 
-© 2025 Zihua Zeng
+© 2025-2026 Zihua Zeng
