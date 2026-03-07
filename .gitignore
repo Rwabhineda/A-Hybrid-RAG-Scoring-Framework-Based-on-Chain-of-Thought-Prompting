@@ -75,8 +75,10 @@ mlruns/
 runs/
 lightning_logs/
 
-# ChromaDB persistence (large files)
-data/rag/chroma_db/
+
+
+# Experiment cache (LLM API response cache, large)
+data/cache/
 
 # Temporary files
 *.tmp

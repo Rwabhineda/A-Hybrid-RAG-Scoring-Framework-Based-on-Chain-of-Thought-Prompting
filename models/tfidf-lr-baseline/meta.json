@@ -1,6 +1,6 @@
 {
   "seed": 42,
-  "train_path": "C:\\Users\\patrick\\Desktop\\TF-IDF + Logistic Regression\\Document\\Train_Article.jsonl",
+  "train_path": "d:\\My_PRO\\The Legalization of Internation\\The Legalization of Internation\\base-line\\TF-IDF + Logistic Regression(1)\\TF-IDF + Logistic Regression\\Document\\Train_Article.jsonl",
   "dims": [
     "obligation",
     "precision",
