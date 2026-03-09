@@ -110,3 +110,7 @@ compare_results.py
 # Abandoned model experiments
 gpt-4-turbo/
 gpt-5/
+
+data\rag\build_chroma.py
+data\rag\rag_vector_data.jsonl
+data\cache
