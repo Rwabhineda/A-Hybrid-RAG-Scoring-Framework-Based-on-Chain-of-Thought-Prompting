@@ -1,0 +1,41 @@
+# 1. 仅基础提示 (no RAG, no COT)
+
+experiment:
+  name: "gpt-4o-mini-base"
+  description: "Base prompt only (no RAG, no COT)"
+
+paths:
+  input_file: "data/processed/other/test_articles.json"
+  output_file: "outputs/other/gpt-4o-mini/base/results.jsonl"
+  exception_log: "outputs/other/gpt-4o-mini/base/exception.jsonl"
+  cache_dir: "data/cache/other/gpt-4o-mini/base"
+
+vector_db:
+  chroma_dir: "data/rag/chroma_db"
+  collection_name: "asean_scoring"
+
+models:
+  openai:
+    model: "gpt-4o-mini"
+    api_url: "https://api.openai.com/v1/chat/completions"
+    api_key: ""
+    temperature: 0.0
+    max_tokens: 1000
+  embedding:
+    model: "intfloat/e5-large-v2"
+  filter:
+    model: "nlpaueb/legal-bert-base-uncased"
+
+retrieval:
+  top_k: 5
+  similarity_threshold: 1.0
+
+runtime:
+  max_concurrent: 3
+  batch_size: 9
+  request_timeout: 300
+
+features:
+  wrd_enabled: false
+  use_rag: false
+  use_cot_guide: false

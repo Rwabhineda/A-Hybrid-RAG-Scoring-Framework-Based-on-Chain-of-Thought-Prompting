@@ -12,51 +12,44 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 import yaml
-from sklearn.metrics import mean_absolute_error, precision_score, recall_score, f1_score
+from sklearn.metrics import mean_absolute_error, cohen_kappa_score
+from scipy.stats import spearmanr
 
 
-# ---------------- Metrics ----------------
-def icc_2_1(y_true: np.ndarray, y_pred: np.ndarray) -> float:
-    """Two-way random, absolute agreement, single rater: ICC(2,1)."""
-    X = np.vstack([y_true, y_pred]).T
-    n, k = X.shape
-    mean_raters = np.mean(X, axis=0)
-    mean_subjects = np.mean(X, axis=1)
-    grand_mean = np.mean(X)
-
-    MS_subject = (k / (n - 1)) * np.sum((mean_subjects - grand_mean) ** 2)
-    MS_rater = (n / (k - 1)) * np.sum((mean_raters - grand_mean) ** 2)
-    MS_res = (1 / ((n - 1) * (k - 1))) * np.sum(
-        (X - mean_subjects[:, None] - mean_raters + grand_mean) ** 2
-    )
-    icc = (MS_subject - MS_res) / (
-        MS_subject + (k - 1) * MS_res + (k / n) * (MS_rater - MS_res)
-    )
-    return float(max(min(icc, 1.0), -1.0))
+# 五级评分映射
+SCORE_TO_CLASS = {0.0: 0, 0.25: 1, 0.5: 2, 0.75: 3, 1.0: 4}
+VALID_SCORES = np.array([0.0, 0.25, 0.5, 0.75, 1.0], dtype=float)
 
 
-def compute_metrics(y_true, y_pred, thr=0.75) -> dict:
-    """Compute evaluation metrics: ICC(2,1), MAE, Exact Agreement, Recall, Precision, F1."""
+def snap_to_valid(arr: np.ndarray) -> np.ndarray:
+    """将预测值吸附到最近的合法档位 {0, 0.25, 0.5, 0.75, 1.0}。"""
+    return np.array([VALID_SCORES[np.argmin(np.abs(VALID_SCORES - x))] for x in arr])
+
+
+def compute_metrics(y_true, y_pred) -> dict:
+    """Compute evaluation metrics: Spearman, MAE, QWK, ACC."""
     y_true = np.asarray(y_true, dtype=float)
     y_pred = np.asarray(y_pred, dtype=float)
 
-    icc = icc_2_1(y_true, y_pred)
-    mae = mean_absolute_error(y_true, y_pred)
-    exact_agree = float(np.mean(y_true == y_pred))
+    mask = ~np.isnan(y_true) & ~np.isnan(y_pred)
+    y_true, y_pred = y_true[mask], y_pred[mask]
 
-    y_true_bin = (y_true >= thr).astype(int)
-    y_pred_bin = (y_pred >= thr).astype(int)
-    recall = recall_score(y_true_bin, y_pred_bin, zero_division=0)
-    precision = precision_score(y_true_bin, y_pred_bin, zero_division=0)
-    f1 = f1_score(y_true_bin, y_pred_bin, zero_division=0)
+    spearman, _ = spearmanr(y_true, y_pred)
+    mae = mean_absolute_error(y_true, y_pred)
+
+    y_true_snapped = snap_to_valid(y_true)
+    y_pred_snapped = snap_to_valid(y_pred)
+    acc = float(np.mean(y_true_snapped == y_pred_snapped))
+
+    qwk_true = np.array([SCORE_TO_CLASS[float(x)] for x in y_true_snapped], dtype=int)
+    qwk_pred = np.array([SCORE_TO_CLASS[float(x)] for x in y_pred_snapped], dtype=int)
+    qwk = cohen_kappa_score(qwk_true, qwk_pred, weights="quadratic")
 
     return {
-        "ICC(2,1)": icc,
-        "MAE": mae,
-        "Exact Agreement Rate": exact_agree,
-        f"Recall@{thr}": recall,
-        f"Precision@{thr}": precision,
-        f"F1-Score@{thr}": f1,
+        "QWK":      qwk,
+        "MAE":      mae,
+        "Spearman": float(spearman),
+        "ACC":      acc,
     }
 
 
@@ -69,7 +62,10 @@ def main():
 
     repo_root = Path(__file__).resolve().parents[2]
 
-    gold_path = repo_root / "data" / "gold" / "asean" / "Test_Article-gold_standard.json"
+    GOLD_MAP = {
+        "asean": repo_root / "data" / "gold" / "asean" / "Test_Article-gold_standard.json",
+        "other": repo_root / "data" / "gold" / "transfer" / "Test_Article-gold_standard-other.json",
+    }
 
     if args.pred:
         pred_path = Path(args.pred)
@@ -80,8 +76,17 @@ def main():
     else:
         raise ValueError("You must provide either --pred or --cfg")
 
+    # 自动检测数据集类型，选择对应 gold 标准
+    pred_str = str(pred_path).replace("\\", "/")
+    if "other" in pred_str:
+        dataset = "other"
+    else:
+        dataset = "asean"
+    gold_path = GOLD_MAP[dataset]
+    print(f"Dataset  : {dataset}")
+    print(f"Gold     : {gold_path}")
+
     dims = ["obligation", "precision", "delegation"]
-    threshold = 0.75
 
     df_gold = pd.read_json(gold_path)
     df_pred = pd.read_json(pred_path, lines=True)
@@ -100,7 +105,7 @@ def main():
     y_true_all = np.concatenate([df[f"{d}_true"].to_numpy(dtype=float) for d in dims])
     y_pred_all = np.concatenate([df[f"{d}_pred"].to_numpy(dtype=float) for d in dims])
 
-    metrics = compute_metrics(y_true_all, y_pred_all, thr=threshold)
+    metrics = compute_metrics(y_true_all, y_pred_all)
 
     print("=== Overall Metrics ===")
     for k, v in metrics.items():
