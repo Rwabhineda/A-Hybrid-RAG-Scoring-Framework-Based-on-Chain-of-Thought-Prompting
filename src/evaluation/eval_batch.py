@@ -110,7 +110,7 @@ def main():
     dataset = detect_dataset(str(target_dir))
     gold_map = {
         "asean": repo_root / "data" / "gold" / "asean" / "Test_Article-gold_standard.json",
-        "other": repo_root / "data" / "gold" / "transfer" / "Test_Article-gold_standard-other.json",
+        "other": repo_root / "data" / "gold" / "other" / "Test_Article-gold_standard-other.json",
     }
     gold_path = gold_map[dataset]
     
