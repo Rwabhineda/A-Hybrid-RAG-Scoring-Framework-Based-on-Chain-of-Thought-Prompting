@@ -1362,7 +1362,6 @@
   {
     "id": 171,
     "document_title": "2004-ASEAN-Protocol-on-Enhanced-Dispute-Settlement-Mechanism-1-1",
-    "year": "2004",
     "text": "Member States which consider that any benefit accruing to them directly or indirectly, under the Agreement or any covered agreement is being nullified or impaired, or that the attainment of any objective of the Agreement or any covered agreement is being impeded as a result of failure of another Member State to carry out its obligations under the Agreement or any covered agreement, or the existence of any other situation may, with a view to achieving satisfactory settlement of the matter, make representations or proposals to the other Member State concerned, which shall give due consideration to the representations or proposals made to it.",
     "obligation": 0.75,
     "precision": 0.75,
@@ -2027,7 +2026,6 @@
   {
     "id": 254,
     "document_title": "2012-ASEAN-Human-Rights-Declaration-1",
-    "year": "2012",
     "text": "ASEAN Member States share a common interest in and commitment to the promotion and protection of human rights and fundamental freedoms which shall be achieved through, inter alia, cooperation with one another as well as with relevant national, regional and international institutions/organisations, in accordance with the ASEAN Charter.",
     "obligation": 0.75,
     "precision": 0.5,

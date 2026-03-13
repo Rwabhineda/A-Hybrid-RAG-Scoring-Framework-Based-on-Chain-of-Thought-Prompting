@@ -114,3 +114,5 @@ gpt-5/
 data\rag\build_chroma.py
 data\rag\rag_vector_data.jsonl
 data\cache
+
+.gitignore

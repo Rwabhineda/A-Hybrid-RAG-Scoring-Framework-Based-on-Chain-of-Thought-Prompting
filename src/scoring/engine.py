@@ -142,91 +142,147 @@ SCORES_JSON_SCHEMA = {
 }
 
 
-SCORING_GUIDE = """
-You are a trained ASEAN legal clause evaluator. Please rate the following clause on three dimensions: Obligation, Precision, and Delegation. For each dimension, the score must be one of: 0.0, 0.25, 0.5, 0.75, or 1.0.
+# =============================================================================
+# PROMPT MODULES FOR ABLATION STUDY
+# =============================================================================
+# Module composition:
+#   base = BASE_MODULE
+#   rag  = BASE_MODULE + RAG_MODULE
+#   cot  = BASE_MODULE + COT_MODULE
+#   full = BASE_MODULE + COT_MODULE + RAG_MODULE
+# =============================================================================
 
+# -----------------------------------------------------------------------------
+# Module 1: BASE - Core role definition and task description (always included)
+# -----------------------------------------------------------------------------
+BASE_MODULE = """
+You are an expert legal clause evaluator.
+Your task: Given a single legal clause, assign it a score from the set {0.0, 0.25, 0.5, 0.75, 1.0} on each of the following three dimensions:
+  • Obligation (strength of commitment)
+  • Precision (level of detail and concreteness)
+  • Delegation (degree of decision-making power granted to a third party)
+"""
+
+# -----------------------------------------------------------------------------
+# Module 2: RAG - Few-shot examples (dynamically filled)
+# -----------------------------------------------------------------------------
+RAG_MODULE = """
+Here are some HIGH-CONFIDENCE examples with similar characteristics:
+{example_section}"""
+
+# -----------------------------------------------------------------------------
+# Module 3: COT - Chain-of-Thought scoring guide with stepwise criteria
+# -----------------------------------------------------------------------------
+COT_MODULE = """
 Strictly follow the stepwise reasoning and criteria below for your scoring. Do NOT score by intuition or general impression.
 
 ---
 Obligation (the strength of legal or institutional commitment imposed by the clause)
 Definitions:
-- 1.0: Clearly stipulates a binding legal obligation and specifies concrete consequences for non-compliance (e.g., sanctions, penalties, loss of entitlements).
-- 0.75: Clearly stipulates a binding legal obligation but does NOT mention specific consequences for breach.
-- 0.5: Stipulates a binding legal obligation but is limited by exceptions, or the responsible actor is not the party itself (e.g., a secretariat).
-- 0.25: Expresses only a recommended action or political commitment (e.g., encouraging cooperation, suggesting best efforts).
-- 0.0: No legal obligation or normative commitment (e.g., vision statements, background context, definitions).
+- 1.0: The clause clearly stipulates the legal obligations that contracting parties shall undertake, and includes specific consequences for breach, such as legal responsibility, sanctions, penalties, disqualification, or loss of rights.
+- 0.75: The clause clearly stipulates the legal obligations that contracting parties shall undertake, but does not include any consequences for breach.
+- 0.5: The clause clearly stipulates legal obligations to be undertaken, but exceptions exist; or the subject of the obligation is not the contracting parties (for example, the Secretariat or a working group).
+- 0.25: The clause only expresses political commitments or intentions to cooperate (such as "shall endeavor," "encourage," or "promote"), and does not constitute a legal obligation.
+- 0.0: The clause contains neither obligations nor political commitments, and is limited to vision statements, background, definitions, or procedural descriptions.
 
 Stepwise criteria:
-1. Does the clause contain any binding or committal language?
+1. Does the clause contain any normative statements (legal obligations or political commitments)?
    - No → Score 0.0
    - Yes → Step 2
-2. Does it only use recommendatory language, or is it a political commitment?
+2. Does the clause contain only political commitment statements?
    - Yes → Score 0.25
    - No → Step 3
-3. Is the obligation conditional, or is the obligated actor not the party itself?
+3. Are the legal obligations stipulated in the clause subject to exceptions, or is the obligation-bearing entity not the contracting parties?
    - Yes → Score 0.5
    - No → Step 4
-4. Does the clause state that non-compliance will lead to legal/institutional consequences (e.g., sanctions, penalties, loss of benefits, legal liability)?
+4. Do the legal obligations stipulated in the clause include specific consequences for breach?
    - No → Score 0.75
    - Yes → Score 1.0
 
 ---
 Precision (the extent to which the clause is specific and concrete regarding actions and responsible parties)
 Definitions:
-- 1.0: Clearly specifies the action, responsible actor, timeline/frequency, method of execution, and target audience. Unambiguous and operational.
-- 0.75: Defines action and actor but omits some details (e.g., missing timeline, method, or target group).
-- 0.5: Specifies action and actor but lacks most implementation details. Intent can be inferred but lacks clear operational applicability.
-- 0.25: Uses directional, vague, or open-ended language (e.g., "endeavor," "explore," "encourage") without concrete actions.
-- 0.0: No directive content or assigned actor; aspirational language, general values, or broad declarations.
+- 1.0: The clause clearly specifies the subject, specific action, implementation method, timeline or frequency, and target object. The wording is clear, unambiguous, and directly operational.
+- 0.75: The clause clearly specifies the subject and specific action but lacks one or more key implementation details (such as method, time, or object). The wording is relatively vague and less operational.
+- 0.5: The clause only states the subject and specific action, lacking key implementation details (such as method, time, and object). It merely expresses intent and lacks clear operability.
+- 0.25: The clause does not clearly specify the subject or action and adopts directional or open-ended language.
+- 0.0: The clause does not contain any directive content and is limited to background, principles, or value declarations.
 
 Stepwise criteria:
-1. Does it contain any action content?
+1. Does the clause contain any directive content?
    - No → Score 0.0
    - Yes → Step 2
-2. Does it contain any concrete, executable action?
+2. Does the clause clearly specify the subject and specific action?
    - No → Score 0.25
    - Yes → Step 3
-3. Does it only specify actors and actions, lacking all concrete details (e.g., frequency, timeframe, methods, targets)?
+3. Does the clause only state the subject and specific action while omitting all key implementation details?
    - Yes → Score 0.5
    - No → Step 4
-4. Does it lack some, but not all, such details (i.e., missing one or two among frequency, methods, targets)?
-   - Yes → Score 0.75
-   - No → Score 1.0
+4. Does the clause clearly specify all key implementation details?
+   - No → Score 0.75
+   - Yes → Score 1.0
 
 ---
 Delegation (whether the clause delegates real adjudicatory, supervisory, executive, or substantial decision-making power to a third party)
 Definitions:
-- 1.0: Grants authoritative functions with direct legal force (dispute resolution, sanctions, binding interpretations). Powers apply automatically.
-- 0.75: Grants binding authority but application is conditional (requires consent/request); OR given decisive control over implementation (approval rights, rule-setting, budget).
-- 0.5: Assigns supportive roles (coordination, technical assistance, information collection). Non-binding and no decisive control.
-- 0.25: No formal institution mentioned, but a specific party is assigned a supportive role (coordination/data collection) without legal authority.
-- 0.0: No institution or party mentioned; or if mentioned, no functional role assigned.
+- 1.0: The clause grants an institution adjudicative and enforcement functions over state behavior with direct legal effect, such as dispute settlement, obligation enforcement, sanctions, compulsory supervision, issuing binding interpretations, or making final non-appealable decisions. These powers take effect automatically.
+- 0.75: The clause grants an institution adjudicative and enforcement functions over state behavior with direct legal effect, but their application is subject to specific conditions, such as requiring consent of contracting parties, procedural triggers, or requests; or the institution is granted administrative functions that may play a decisive role in instrument implementation, such as approval/veto power, rule-making authority, budget allocation authority, or certification authority.
+- 0.5: The clause grants an institution administrative functions. Such functions do not play a decisive role in instrument implementation.
+- 0.25: The clause does not mention a formal institution, but designates specific contracting parties to undertake administrative functions, including coordination, technical assistance, information collection, and advisory provision. Such functions do not play a decisive role in treaty implementation.
+- 0.0: The clause does not mention any institution or contracting party; or although mentioned, no specific functional role or responsibility is assigned.
 
 Stepwise criteria:
-1a. Does it mention any concrete institution or party?
-   - No → Score 0.0
-   - Yes → 1b
-1b. Is any concrete institution or party given support functions (coordination, technical support, information, advice, etc.) or authoritative functions (dispute settlement, execution, sanctions, supervision, binding interpretation, or final, non-appealable decisions)?
+1. Does the clause assign any function to an institution or contracting party?
    - No → Score 0.0
    - Yes → Step 2
-2. Is the empowered entity one of the parties (including subordinate bodies)?
+2. Is the clause limited to assigning specific functions to contracting parties (rather than a formal institution)?
    - Yes → Score 0.25
    - No → Step 3
-3. Does the institution hold "decisive control" over treaty implementation (key approval, veto, procedural design, resource allocation, certification, etc.)?
-   - No → Score 0.5
-   - Yes → Step 4
-4. Is the institution granted authoritative powers (as above) that are legally binding on the parties?
-   - No → Score 0.75
-   - Yes → Step 5
-5. Are those authoritative powers subject to prerequisites (e.g., consensus, party consent, procedural trigger, application)?
+3. Do the functions assigned to the institution constitute non-decisive administrative functions?
+   - Yes → Score 0.5
+   - No → Step 4
+4. Do the functions assigned to the institution constitute decisive administrative functions or conditional adjudicative and enforcement authority?
    - Yes → Score 0.75
    - No → Score 1.0
 
-Please score strictly according to the above criteria and the clause text only.
+CRITICAL INSTRUCTIONS:
+1. You MUST follow the stepwise criteria EXACTLY - evaluate each step explicitly
+2. Pay special attention to these key terms in the clause: {clause_keywords}
+3. Each dimension is INDEPENDENT - do not let one score influence another
+4. If uncertain between two scores, provide detailed reasoning and choose the more conservative (lower) score
+5. Your reasoning MUST explicitly reference the specific steps in the criteria
 """
+
+# Simple output template - for base/rag modes without CoT
+SIMPLE_OUTPUT_TEMPLATE = """
+FINAL SCORES (must be exactly one of: 0.0, 0.25, 0.5, 0.75, or 1.0):
+{{"obligation": [score], "precision": [score], "delegation": [score]}}
+"""
+
+# CoT output template - requires stepwise reasoning, reuses SIMPLE_OUTPUT_TEMPLATE for the final scores line
+COT_OUTPUT_TEMPLATE = """
+IMPORTANT: For each dimension below, you must:
+- Explicitly state which step you are evaluating
+- Quote the relevant part of the clause
+- Explain why you move to the next step or stop
+- State the final score clearly
+
+Obligation:
+[Follow steps 1-4 explicitly, showing your reasoning at each step]
+
+Precision:
+[Follow steps 1-4 explicitly, showing your reasoning at each step]
+
+Delegation:
+[Follow steps 1a, 1b, 2-5 explicitly, showing your reasoning at each step]
+
+Explanation:
+Based on the above step-by-step analysis, provide a brief summary of your scoring rationale. Focus on the key factors that determined each score.
+""" + SIMPLE_OUTPUT_TEMPLATE
 
 
 def extract_key_terms(text: str) -> List[str]:
+    """Extract legal keywords and institution names from clause text."""
     text_lower = text.lower()
     found_terms = []
     for category, terms in LEGAL_KEYWORDS.items():
@@ -238,141 +294,72 @@ def extract_key_terms(text: str) -> List[str]:
     return list(set(found_terms))[:10]
 
 
-# Simple base prompt (matches old Zero-shot code)
-BASE_PROMPT = """
-You are an expert ASEAN legal clause evaluator.
-Your task: Given a single legal clause, assign it a score from the set {0.0, 0.25, 0.5, 0.75, 1.0} on each of the following three dimensions:
-  • Obligation (strength of commitment)
-  • Precision (level of detail and concreteness)
-  • Delegation (degree of decision-making power granted to a third party)
-"""
-
-
-def build_prompt(clause_text: str, similar_examples: List[Dict], use_cot_guide: bool = True, use_rag: bool = True) -> str:
-    """
-    Build prompt based on ablation mode:
-    - base (use_cot=False, use_rag=False): BASE_PROMPT only
-    - rag  (use_cot=False, use_rag=True):  BASE_PROMPT + examples
-    - cot  (use_cot=True,  use_rag=False): SCORING_GUIDE + CRITICAL_INSTRUCTIONS
-    - full (use_cot=True,  use_rag=True):  SCORING_GUIDE + examples + CRITICAL_INSTRUCTIONS
-    """
-    clause_keywords = extract_key_terms(clause_text)
+def _build_rag_examples(similar_examples: List[Dict]) -> str:
+    """Build RAG example section from similar examples."""
+    if not similar_examples:
+        return ""
     
-    # Build RAG example section
-    example_section = ""
-    if use_rag and similar_examples:
-        for i, item in enumerate(similar_examples[:3]):
-            metadata = item['metadata']
-            conf_info = []
-            for dim in ['obligation', 'precision', 'delegation']:
-                score = metadata.get(dim, 'N/A')
-                conf = metadata.get(f'confidence_{dim}', 'N/A')
-                conf_info.append(f"{dim.capitalize()}: {score} (confidence: {conf})")
-            distance_info = f"(similarity: {1-item.get('distance', 0):.2f})" if 'distance' in item else ""
-            example_section += f"""Example {i+1} {distance_info}:
+    example_parts = []
+    for i, item in enumerate(similar_examples[:3]):
+        metadata = item['metadata']
+        conf_info = []
+        for dim in ['obligation', 'precision', 'delegation']:
+            score = metadata.get(dim, 'N/A')
+            conf = metadata.get(f'confidence_{dim}', 'N/A')
+            conf_info.append(f"{dim.capitalize()}: {score} (confidence: {conf})")
+        distance_info = f"(similarity: {1-item.get('distance', 0):.2f})" if 'distance' in item else ""
+        example_parts.append(f"""Example {i+1} {distance_info}:
 Clause: {item['document']}
 Key terms identified: {', '.join(extract_key_terms(item['document'])[:5])}
 {chr(10).join(conf_info)}
 Explanation: {metadata.get('explanation_text', 'N/A')}
----
-"""
+---""")
     
-    # === MODE: base (no CoT, no RAG) ===
-    if not use_cot_guide and not use_rag:
-        return f"""{BASE_PROMPT}
-Now, analyze the following clause:
+    return "\n".join(example_parts)
 
-Clause: {clause_text}
 
-FINAL SCORES (must be exactly one of: 0.0, 0.25, 0.5, 0.75, or 1.0), Output only this single line of JSON, no other content:
-{{"obligation": [score], "precision": [score], "delegation": [score]}}
-"""
+def build_prompt(clause_text: str, similar_examples: List[Dict], use_cot_guide: bool = True, use_rag: bool = True) -> str:
+    """
+    Build prompt by combining modules for ablation study.
     
-    # === MODE: rag (no CoT, with RAG) ===
-    if not use_cot_guide and use_rag:
-        return f"""{BASE_PROMPT}
-Here are some HIGH-CONFIDENCE examples with similar characteristics:
-{example_section}
-Now, analyze the following clause:
-
-Clause: {clause_text}
-
-FINAL SCORES (must be exactly one of: 0.0, 0.25, 0.5, 0.75, or 1.0), Output only this single line of JSON, no other content:
-{{"obligation": [score], "precision": [score], "delegation": [score]}}
-"""
+    Module composition:
+        base = BASE_MODULE
+        rag  = BASE_MODULE + RAG_MODULE
+        cot  = BASE_MODULE + COT_MODULE
+        full = BASE_MODULE + COT_MODULE + RAG_MODULE
     
-    # === MODE: cot (with CoT, no RAG) ===
-    if use_cot_guide and not use_rag:
-        return f"""{SCORING_GUIDE}
-CRITICAL INSTRUCTIONS:
-1. You MUST follow the stepwise criteria EXACTLY - evaluate each step explicitly
-2. Pay special attention to these key terms in the clause: {', '.join(clause_keywords)}
-3. Each dimension is INDEPENDENT - do not let one score influence another
-4. If uncertain between two scores, provide detailed reasoning and choose the more conservative (lower) score
-5. Your reasoning MUST explicitly reference the specific steps in the criteria
-
-Now, analyze the following clause step by step:
-
-Clause: {clause_text}
-
-IMPORTANT: For each dimension below, you must:
-- Explicitly state which step you are evaluating
-- Quote the relevant part of the clause
-- Explain why you move to the next step or stop
-- State the final score clearly
-
-Obligation:
-[Follow steps 1-4 explicitly, showing your reasoning at each step]
-
-Precision:
-[Follow steps 1-4 explicitly, showing your reasoning at each step]
-
-Delegation:
-[Follow steps 1a, 1b, 2-5 explicitly, showing your reasoning at each step]
-
-Explanation:
-Based on the above step-by-step analysis, provide a brief summary of your scoring rationale. Focus on the key factors that determined each score.
-
-FINAL SCORES (must be exactly one of: 0.0, 0.25, 0.5, 0.75, or 1.0):
-{{"obligation": [score], "precision": [score], "delegation": [score]}}
-"""
+    Args:
+        clause_text: The legal clause to analyze
+        similar_examples: RAG retrieved examples
+        use_cot_guide: Whether to include COT_MODULE
+        use_rag: Whether to include RAG_MODULE
+    """
+    prompt_parts = []
     
-    # === MODE: full (with CoT and RAG) ===
-    return f"""{SCORING_GUIDE}
-CRITICAL INSTRUCTIONS:
-1. You MUST follow the stepwise criteria EXACTLY - evaluate each step explicitly
-2. Pay special attention to these key terms in the clause: {', '.join(clause_keywords)}
-3. Each dimension is INDEPENDENT - do not let one score influence another
-4. If uncertain between two scores, provide detailed reasoning and choose the more conservative (lower) score
-5. Your reasoning MUST explicitly reference the specific steps in the criteria
-
-Here are some HIGH-CONFIDENCE examples with similar characteristics:
-{example_section}
-Now, analyze the following clause step by step:
-
-Clause: {clause_text}
-
-IMPORTANT: For each dimension below, you must:
-- Explicitly state which step you are evaluating
-- Quote the relevant part of the clause
-- Explain why you move to the next step or stop
-- State the final score clearly
-
-Obligation:
-[Follow steps 1-4 explicitly, showing your reasoning at each step]
-
-Precision:
-[Follow steps 1-4 explicitly, showing your reasoning at each step]
-
-Delegation:
-[Follow steps 1a, 1b, 2-5 explicitly, showing your reasoning at each step]
-
-Explanation:
-Based on the above step-by-step analysis, provide a brief summary of your scoring rationale. Focus on the key factors that determined each score.
-
-FINAL SCORES (must be exactly one of: 0.0, 0.25, 0.5, 0.75, or 1.0):
-{{"obligation": [score], "precision": [score], "delegation": [score]}}
-"""
+    # Step 1: Always start with BASE_MODULE
+    prompt_parts.append(BASE_MODULE)
+    
+    # Step 2: Add COT_MODULE if enabled
+    if use_cot_guide:
+        clause_keywords = extract_key_terms(clause_text)
+        prompt_parts.append(COT_MODULE.format(clause_keywords=', '.join(clause_keywords)))
+    
+    # Step 3: Add RAG_MODULE if enabled
+    if use_rag and similar_examples:
+        example_section = _build_rag_examples(similar_examples)
+        prompt_parts.append(RAG_MODULE.format(example_section=example_section))
+    
+    # Step 4: Add clause input
+    analyze_instruction = "Now, analyze the following clause step by step:" if use_cot_guide else "Now, analyze the following clause:"
+    prompt_parts.append(f"\n{analyze_instruction}\n\nClause: {clause_text}")
+    
+    # Step 5: Add output template (COT or SIMPLE)
+    if use_cot_guide:
+        prompt_parts.append(COT_OUTPUT_TEMPLATE)
+    else:
+        prompt_parts.append(SIMPLE_OUTPUT_TEMPLATE)
+    
+    return "\n".join(prompt_parts)
 
 
 def extract_scores(output_str: str) -> Dict[str, Optional[float]]:
@@ -525,7 +512,7 @@ class BatchScorer:
         self.use_rag = config["features"]["use_rag"]
         self.use_cot_guide = config["features"].get("use_cot_guide", True)
         self.wrd_enabled = config["features"].get("wrd_enabled", False)
-        self.relevance_threshold = config["retrieval"].get("relevance_threshold", 0.3)
+        self.relevance_threshold = config["retrieval"].get("relevance_threshold", 0.5)
         self.filter_model_name = config["models"]["filter"]["model"]
 
         self.cache = ClauseCache(self.cache_dir, model_tag=self.openai_model)
